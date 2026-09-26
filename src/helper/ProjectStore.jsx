@@ -21,3 +21,8 @@ export const useProjectStore = create((set) => ({
         })),
     closeProject: () => set({ panelOpen: false })
 }));
+
+// 开发模式调试出口：端到端验收脚本用它读面板状态（生产不打包）
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+    window.__projectStore = useProjectStore;
+}

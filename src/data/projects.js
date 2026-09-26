@@ -1,80 +1,79 @@
 /**
  * ============================================================
- *  你的项目数据 —— 【以后只改这一个文件就够了】
+ *  展示板 6 张卡的数据 —— 【以后改内容只动这一个文件】
  * ============================================================
- * 房间里的 6 张卡片会按顺序读这里的 6 条数据。
- * 改完保存，页面会热更新，不用重启。
+ * 每张卡对应展示板上的一个可点图标。点图标 → 镜头飞到对应设备 +
+ * 弹出中文大面板（标题 + 简介）。
  *
- * 每一项字段说明：
+ * 字段说明：
  *   id       唯一标识，别重复
- *   title    项目标题（显示成大标题）
- *   subtitle 一句话简介
- *   tags     技术标签数组
- *   desc     详细描述，支持多行（数组里每个元素是一段）
- *   links    链接数组 { label, url }，url 填你自己的网址；暂时没有就留空数组
- *   accent   主题色（CSS 颜色），用来给每张卡一个不同的配色
+ *   type     功能类型，决定设备屏幕里渲染什么：
+ *              'bilibili' 显示器 → 嵌 B站 视频页（联网）
+ *              'map'      手机   → 交互地图（联网）
+ *              'game'     电视   → 复古游戏模拟器（本地）
+ *              'music'    笔记本/音乐 → 网易云播放器（联网）
+ *              'home'     主页   → 退回全景（本地）
+ *   title    大面板标题
+ *   subtitle 大面板一句话简介
+ *   accent   主题色（CSS 颜色）
  *
- * ⚠️ 注意：这个版本是【纯本地】的，不请求任何外网。
- *     links 里的 url 点了会在新标签页打开，如果你填的是外网地址，
- *     需要你自己网络能访问才行。
+ * 说明：bilibili / map / music 需要联网；game / home 本地可用。
  */
 
 export const PROJECTS = [
     {
-        id: 'p1',
-        title: '我的项目 01',
-        subtitle: '一句话说明这个项目是做什么的',
-        tags: ['React', 'Three.js'],
-        desc: [
-            '这里是第一段详细描述。',
-            '这里可以再写一段，讲讲你做了什么、遇到什么难点、怎么解决的。'
-        ],
-        links: [],
-        accent: '#ff6b6b'
+        id: 'desktop',
+        type: 'bilibili',
+        title: 'B站',
+        subtitle: '在房间显示器里刷 B站 视频',
+        accent: '#00a1d6'
     },
     {
-        id: 'p2',
-        title: '我的项目 02',
-        subtitle: '换一行简介试试',
-        tags: ['Vue', 'Vite'],
-        desc: ['第二段占位描述，照着 projects.js 里的注释改就行。'],
-        links: [],
+        id: 'smartphone',
+        type: 'map',
+        title: '地图',
+        subtitle: '手机里能拖拽缩放的交互地图',
         accent: '#4ecdc4'
     },
     {
-        id: 'p3',
-        title: '我的项目 03',
-        subtitle: '第三个项目',
-        tags: ['Node.js', 'Express'],
-        desc: ['后端也可以放进来，这个面板只是 HTML，写什么都能显示。'],
-        links: [],
+        id: 'tv',
+        type: 'game',
+        title: '复古游戏',
+        subtitle: '电视里的 GBA 模拟器，本地可玩',
+        accent: '#ff6b6b'
+    },
+    {
+        id: 'laptop',
+        type: 'music',
+        title: '网易云音乐',
+        subtitle: '笔记本里的音乐播放器，能搜能放能看词',
+        accent: '#ec4141'
+    },
+    {
+        id: 'music',
+        type: 'music',
+        title: '网易云音乐',
+        subtitle: '点这里同样打开笔记本的音乐播放器',
+        accent: '#ec4141'
+    },
+    {
+        id: 'home',
+        type: 'home',
+        title: '回到房间',
+        subtitle: '退回房间全景，重新逛逛',
         accent: '#a06bff'
-    },
-    {
-        id: 'p4',
-        title: '我的项目 04',
-        subtitle: '第四个项目',
-        tags: ['Python', 'FastAPI'],
-        desc: ['想放图片？在 public/ 下丢图片，然后改 projects.js 加 image 字段。'],
-        links: [],
-        accent: '#ffa94d'
-    },
-    {
-        id: 'p5',
-        title: '我的项目 05',
-        subtitle: '第五个项目',
-        tags: ['TypeScript'],
-        desc: ['每个 tag 会渲染成一个小胶囊，删掉就少一个。'],
-        links: [],
-        accent: '#74c0fc'
-    },
-    {
-        id: 'p6',
-        title: '我的项目 06',
-        subtitle: '第六个项目',
-        tags: ['Docker', 'CI/CD'],
-        desc: ['最后一张卡，改完这 6 条，整个房间就是你的作品集了。'],
-        links: [],
-        accent: '#f783ac'
     }
 ];
+
+/**
+ * 展示板图标（glb 节点名）→ PROJECTS 索引。
+ * dispItem.jsx 里 6 个可点 mesh 按这个映射打开对应卡片。
+ */
+export const CARD_TO_PROJECT = {
+    desktop: 0,
+    smartphone: 1,
+    tv: 2,
+    laptop: 3,
+    music: 4,
+    home: 5
+};

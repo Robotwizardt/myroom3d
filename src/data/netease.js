@@ -16,7 +16,7 @@ export const formatDuration = (ms) => {
     return `${m}:${s}`;
 };
 
-/** 把一首歌的原始字段整理成播放器要用的形状 */
+/** 把一首歌的原始字段整理成播放器要用的形状（/search 老格式：artists/duration） */
 export const normalizeSong = (raw) => ({
     id: raw.id,
     name: raw.name,
@@ -24,7 +24,45 @@ export const normalizeSong = (raw) => ({
     duration: formatDuration(raw.duration)
 });
 
-/** 关键词搜歌，返回整理好的歌曲数组。失败/无结果返回空数组 */
+/**
+ * 把歌单里的曲目（/playlist/detail 新格式：ar/dt/al）整理成统一形状。
+ * 歌单接口的歌手字段叫 ar、时长叫 dt（毫秒）、专辑封面在 al.picUrl ——
+ * 和 /search 的 artists/duration 不同，实测自建 API 返回结构如此。
+ */
+export const normalizeTrack = (raw) => ({
+    id: raw.id,
+    name: raw.name,
+    artist: (raw.ar || []).map((a) => a.name).join('/'),
+    duration: formatDuration(raw.dt),
+    picUrl: raw?.al?.picUrl
+});
+
+/** 拿个性化推荐歌单列表，返回第一个歌单的 id（作为默认歌单） */
+export const getDefaultPlaylistId = async () => {
+    const res = await fetch(`${API_BASE}/personalized?limit=1`);
+    const json = await res.json();
+    const first = json?.result?.[0];
+    return first ? first.id : null;
+};
+
+/**
+ * 拉取某个歌单的详情，返回 { name, tracks }：
+ *   name   歌单名
+ *   tracks 整理好的曲目数组 [{id,name,artist,duration,picUrl}]
+ * 网络失败会抛错，由调用方提示用户。
+ */
+export const getPlaylistTracks = async (playlistId) => {
+    const res = await fetch(`${API_BASE}/playlist/detail?id=${playlistId}`);
+    const json = await res.json();
+    const playlist = json?.playlist;
+    if (!playlist) throw new Error('歌单信息拿不到');
+    return {
+        name: playlist.name,
+        tracks: (playlist.tracks || []).map(normalizeTrack)
+    };
+};
+
+/** 关键词搜歌，返回整理好的歌曲数组。失败/无结果返回空数组（保留给搜索场景备用） */
 export const searchSongs = async (keywords, limit = 12) => {
     const res = await fetch(
         `${API_BASE}/search?keywords=${encodeURIComponent(keywords)}&limit=${limit}`

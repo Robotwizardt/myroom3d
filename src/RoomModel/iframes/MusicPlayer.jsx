@@ -2,27 +2,27 @@
 import { Html } from '@react-three/drei';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { activeLyricIndex, getLyric, getSongUrl, searchSongs } from '../../data/netease';
+import {
+    activeLyricIndex,
+    getDefaultPlaylistId,
+    getLyric,
+    getPlaylistTracks,
+    getSongUrl
+} from '../../data/netease';
 import { useCameraStore } from '../../helper/CameraStore';
 
 /**
- * 网易云音乐播放器 —— 嵌在笔记本屏幕里（<Html> 包一层真实 DOM）。
- * 功能：搜索关键词 → 出歌曲列表 → 点歌播放 → 暂停/进度 → 滚动歌词高亮。
- * 数据来自用户自建的 NeteaseCloudMusicApiEnhanced (见 src/data/netease.js)。
+ * 网易云音乐播放器 —— 焊在笔记本屏幕里（<Html transform>，同 GBA 模拟器做法）。
+ * 布局：左边真实歌单曲目列表，右边当前歌的歌词。
+ * 数据来自用户自建的 NeteaseCloudMusicApiEnhanced（见 src/data/netease.js）。
+ * 不自动播放：进来只是把歌单列出来，点了哪首才播哪首。
  */
 const MusicPlayer = React.memo(() => {
     const cameraState = useCameraStore((state) => state.cameraState);
     const isLaptop = useMemo(() => cameraState === 'laptop', [cameraState]);
 
-    // 照 GBA 模拟器（tvEmulator）/ 显示器（desktopiFrame）的做法，用 <Html transform>
-    // 把播放器直接焊进笔记本屏幕：DOM 跟随 3D 屏幕平面，镜头任意角度都对齐、不割裂。
-    // 屏幕 mesh (nodes.laptop) 是斜面四边形，实测 4 顶点经 matrixWorld 变换后拟合出屏幕基：
-    //   right = (-0.5542, 0, -0.8324), up = (-0.1311, 0.9875, 0.0876), normal = (0.822, 0.1576, -0.5472)
-    // 注意：Html 的 position/rotation 是【父级空间】坐标（Html 组与屏幕 mesh 同处带平移
-    //   t=(0.0328,-2.6891,0.5782) 的父级下），屏幕中心世界坐标 (0.29812,-0.3133,3.78785)
-    //   换算到父级空间 = C - t；父级为纯平移，旋转无需换算。
-    // rotation = 由 right/up/normal 构造的基矩阵转欧拉角（XYZ 序）。
-    // distanceFactor 0.585 + wrap 700x400：世界尺寸约 1.02x0.585，正好铺满屏幕 (约 1.03x0.58)。
+    // Html transform 把 DOM 焊进笔记本屏幕平面，参数说明见 git 历史（屏幕基拟合）：
+    //   position/rotation 是父级空间坐标；distanceFactor 0.585 + wrap 700x400 ≈ 铺满屏幕。
     return (
         <group>
             {isLaptop && (
@@ -42,42 +42,52 @@ const MusicPlayer = React.memo(() => {
 });
 
 const PlayerPanel = () => {
-    const [query, setQuery] = useState('');
-    const [songs, setSongs] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [playlistName, setPlaylistName] = useState('');
+    const [songs, setSongs] = useState([]); // 歌单曲目 [{id,name,artist,duration,picUrl}]
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [current, setCurrent] = useState(null); // 当前播的歌 {id,name,artist}
+    const [current, setCurrent] = useState(null); // 当前播的歌
     const [playing, setPlaying] = useState(false);
     const [lyrics, setLyrics] = useState([]);
     const [time, setTime] = useState(0);
     const audioRef = useRef(null);
     const lyricBoxRef = useRef(null);
 
-    const doSearch = useCallback(async () => {
-        const q = query.trim();
-        if (!q) return;
-        setLoading(true);
-        setError('');
-        try {
-            const list = await searchSongs(q);
-            setSongs(list);
-            if (list.length === 0) setError('没找到相关歌曲');
-        } catch (e) {
-            setError('搜索失败：' + e.message);
-        } finally {
-            setLoading(false);
-        }
-    }, [query]);
+    // 进面板就拉默认歌单（不播放任何东西）
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const pid = await getDefaultPlaylistId();
+                if (!pid) throw new Error('拿不到推荐歌单');
+                const detail = await getPlaylistTracks(pid);
+                if (!alive) return;
+                setPlaylistName(detail.name);
+                setSongs(detail.tracks);
+            } catch (e) {
+                if (alive) setError('歌单加载失败：' + e.message);
+            } finally {
+                if (alive) setLoading(false);
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, []);
 
     const playSong = useCallback(async (song) => {
         setError('');
         try {
             const url = await getSongUrl(song.id);
-            if (!url) { setError('这首歌拿不到播放地址'); return; }
+            if (!url) {
+                setError('这首歌拿不到播放地址');
+                return;
+            }
             const audio = audioRef.current;
             audio.src = url;
             setCurrent(song);
             setTime(0);
+            setLyrics([]);
             await audio.play();
             setPlaying(true);
             const lrc = await getLyric(song.id);
@@ -90,8 +100,13 @@ const PlayerPanel = () => {
     const togglePlay = useCallback(() => {
         const audio = audioRef.current;
         if (!audio || !audio.src) return;
-        if (playing) { audio.pause(); setPlaying(false); }
-        else { audio.play(); setPlaying(true); }
+        if (playing) {
+            audio.pause();
+            setPlaying(false);
+        } else {
+            audio.play();
+            setPlaying(true);
+        }
     }, [playing]);
 
     // 高亮当前歌词并滚动到可见
@@ -105,39 +120,29 @@ const PlayerPanel = () => {
 
     const S = styles;
     return (
-        <div style={S.wrap}>
-            <div style={S.header}>☁️ 网易云音乐</div>
-            <div style={S.searchRow}>
-                <input
-                    style={S.input}
-                    value={query}
-                    placeholder="搜歌，比如：周杰伦"
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && doSearch()}
-                />
-                <button style={S.btn} onClick={doSearch} disabled={loading}>
-                    {loading ? '…' : '搜索'}
-                </button>
-            </div>
-            {error && <div style={S.error}>{error}</div>}
-
-            {/* 正在播放 + 控制 */}
-            {current && (
-                <div style={S.nowPlaying}>
-                    <div style={S.npText}>
-                        <div style={S.npName}>{current.name}</div>
-                        <div style={S.npArtist}>{current.artist}</div>
-                    </div>
+        // 根 div 拦截指针事件冒泡：不让点击穿透到 canvas 的 raycast，
+        // 否则会误触底下 3D mesh（比如误点到显示器导致镜头乱跳）。
+        <div
+            style={S.wrap}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div style={S.header}>
+                <span>☁️ {playlistName || '网易云音乐'}</span>
+                {current && (
                     <button style={S.playBtn} onClick={togglePlay}>
                         {playing ? '⏸' : '▶'}
                     </button>
-                </div>
-            )}
+                )}
+            </div>
+            {error && <div style={S.error}>{error}</div>}
 
             <div style={S.body}>
-                {/* 左：搜索结果 */}
+                {/* 左：歌单曲目 */}
                 <div style={S.list}>
-                    {songs.map((s) => (
+                    {loading && <div style={S.hint}>歌单加载中…</div>}
+                    {songs.map((s, i) => (
                         <div
                             key={s.id}
                             style={{
@@ -149,12 +154,17 @@ const PlayerPanel = () => {
                             }}
                             onClick={() => playSong(s)}
                         >
-                            <div style={S.songName}>{s.name}</div>
-                            <div style={S.songMeta}>{s.artist} · {s.duration}</div>
+                            <span style={S.songIdx}>{i + 1}</span>
+                            <div style={S.songText}>
+                                <div style={S.songName}>{s.name}</div>
+                                <div style={S.songMeta}>
+                                    {s.artist} · {s.duration}
+                                </div>
+                            </div>
                         </div>
                     ))}
-                    {songs.length === 0 && !loading && (
-                        <div style={S.hint}>输入关键词，搜一首想听的歌</div>
+                    {!loading && songs.length === 0 && !error && (
+                        <div style={S.hint}>歌单是空的</div>
                     )}
                 </div>
 
@@ -166,7 +176,10 @@ const PlayerPanel = () => {
                                 key={i}
                                 style={{
                                     ...S.lyricLine,
-                                    color: i === activeIdx ? '#ff8b5e' : 'rgba(255,255,255,0.45)',
+                                    color:
+                                        i === activeIdx
+                                            ? '#ff8b5e'
+                                            : 'rgba(255,255,255,0.45)',
                                     fontWeight: i === activeIdx ? 700 : 400
                                 }}
                             >
@@ -174,12 +187,14 @@ const PlayerPanel = () => {
                             </div>
                         ))
                     ) : (
-                        <div style={S.hint}>{current ? '歌词加载中…' : '播放后显示歌词'}</div>
+                        <div style={S.hint}>
+                            {current ? '歌词加载中…' : '点左边一首歌开始听'}
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* 隐藏的 audio 元素：真正发声的是它 */}
+            {/* 真正发声的隐藏 audio 元素 */}
             <audio
                 ref={audioRef}
                 onTimeUpdate={(e) => setTime(e.target.currentTime)}
@@ -204,51 +219,29 @@ const styles = {
         boxSizing: 'border-box',
         overflow: 'hidden'
     },
-    header: { fontSize: 18, fontWeight: 700, color: '#ff7236', marginBottom: 8 },
-    searchRow: { display: 'flex', gap: 8, marginBottom: 8 },
-    input: {
-        flex: 1,
-        padding: '6px 10px',
-        borderRadius: 6,
-        border: '1px solid #3d2f5c',
-        background: '#241a3d',
-        color: '#fff',
-        fontSize: 14,
-        outline: 'none'
-    },
-    btn: {
-        padding: '6px 14px',
-        borderRadius: 6,
-        border: 'none',
-        background: '#ff7236',
-        color: '#fff',
-        fontSize: 14,
-        cursor: 'pointer'
-    },
-    error: { color: '#ff8080', fontSize: 12, marginBottom: 6 },
-    nowPlaying: {
+    header: {
+        fontSize: 15,
+        fontWeight: 700,
+        color: '#ff7236',
+        marginBottom: 8,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'rgba(255,114,54,0.14)',
-        borderRadius: 6,
-        padding: '6px 10px',
-        marginBottom: 8
+        whiteSpace: 'nowrap',
+        overflow: 'hidden'
     },
-    npText: { minWidth: 0 },
-    npName: { fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    npArtist: { fontSize: 11, color: 'rgba(255,255,255,0.6)' },
     playBtn: {
-        width: 34,
-        height: 34,
+        width: 30,
+        height: 30,
         borderRadius: '50%',
         border: 'none',
         background: '#ff7236',
         color: '#fff',
-        fontSize: 15,
+        fontSize: 13,
         cursor: 'pointer',
         flexShrink: 0
     },
+    error: { color: '#ff8080', fontSize: 12, marginBottom: 6 },
     body: { flex: 1, display: 'flex', gap: 10, minHeight: 0 },
     list: {
         flex: 1.2,
@@ -257,8 +250,30 @@ const styles = {
         borderRadius: 6,
         padding: 4
     },
-    songRow: { padding: '6px 8px', borderRadius: 4, cursor: 'pointer', marginBottom: 2 },
-    songName: { fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    songRow: {
+        padding: '5px 8px',
+        borderRadius: 4,
+        cursor: 'pointer',
+        marginBottom: 2,
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center'
+    },
+    songIdx: {
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.35)',
+        width: 18,
+        textAlign: 'right',
+        flexShrink: 0
+    },
+    songText: { minWidth: 0 },
+    songName: {
+        fontSize: 13,
+        fontWeight: 500,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+    },
     songMeta: { fontSize: 10, color: 'rgba(255,255,255,0.5)' },
     lyricBox: {
         flex: 1,
@@ -268,7 +283,12 @@ const styles = {
         padding: 8
     },
     lyricLine: { fontSize: 12, lineHeight: 1.9, transition: 'color 0.2s' },
-    hint: { fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginTop: 30 }
+    hint: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.35)',
+        textAlign: 'center',
+        marginTop: 30
+    }
 };
 
 export default MusicPlayer;

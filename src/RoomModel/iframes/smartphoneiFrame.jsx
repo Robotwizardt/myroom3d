@@ -4,6 +4,13 @@ import React, { useMemo, useRef } from 'react';
 
 import { useCameraStore } from '../../helper/CameraStore';
 
+// 手机屏幕里的交互地图 —— OpenStreetMap 官方嵌入页（可拖拽/缩放，零依赖）。
+// 想换城市/区域：到 openstreetmap.org 搜到你要的位置 → 右侧「分享」→ HTML →
+// 复制 embed.html?bbox=...&layer=mapnik 那串贴到这里。bbox=左,下,右,上 经纬度。
+// 下面默认框的是北京（天安门附近）。
+const MAP_EMBED =
+    'https://www.openstreetmap.org/export/embed.html?bbox=116.35,39.88,116.44,39.93&layer=mapnik&marker=39.905,116.397';
+
 const SmartphoneiFrame = React.memo(() => {
     const cameraState = useCameraStore((state) => state.cameraState);
     const iframeRef = useRef(null);
@@ -30,8 +37,8 @@ const SmartphoneiFrame = React.memo(() => {
                     <iframe
                         width={392}
                         height={809}
-                        title="embed"
-                        src="https://at010303-inner.vercel.app/"
+                        title="交互地图"
+                        src={MAP_EMBED}
                         style={{ border: 'none', borderRadius: '22px' }}
                         ref={iframeRef}
                     />

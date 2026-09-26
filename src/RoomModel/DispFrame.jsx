@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { useCameraStore } from '../helper/CameraStore';
 import DesktopiFrame from './iframes/desktopiFrame';
+import MusicPlayer from './iframes/MusicPlayer';
 import SmartphoneiFrame from './iframes/smartphoneiFrame';
 import TvEmulator from './iframes/tvEmulator';
 import LaptopDisp from './laptopDisp';
@@ -47,6 +48,7 @@ const DispFrame = React.memo(({ nodes }) => {
             <LaptopDisp nodes={nodes} />
             <SmartphoneiFrame />
             <DesktopiFrame />
+            <MusicPlayer />
             <TvEmulator />
 
             {/* Desktop monitor */}

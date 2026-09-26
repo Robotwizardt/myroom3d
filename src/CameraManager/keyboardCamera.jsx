@@ -5,7 +5,6 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 
 import { useCameraStore } from '../helper/CameraStore';
-import { useProjectStore } from '../helper/ProjectStore';
 
 // 和 CameraManager.jsx 里 default 分支的 setLookAt 保持一致
 const DEFAULT_VIEW = [14, 10, -14, 0, -1, 0];
@@ -77,9 +76,6 @@ export const KeyboardMoveDriver = ({ controlsRef }) => {
         const controls = controlsRef.current;
         if (!controls) return;
 
-        // 弹出项目大面板时，临时禁用 WASD 移动（面板要接收键盘：Esc/左右键）
-        if (useProjectStore.getState().panelOpen) return;
-
         const k = keys.current;
         if (k.size === 0) return;
 
@@ -121,8 +117,6 @@ export const ResetKey = ({ controlsRef }) => {
             )
                 return;
             useCameraStore.getState().default();
-            // R 键同时关掉项目大面板（回全景 = 退出当前浏览）
-            useProjectStore.getState().closeProject();
             // 关键：如果当前已经是 default 状态，光改 store 不会触发 CameraManager 重渲染，
             // 相机就不会被拉回去。所以这里再直接对控制器下一次 setLookAt，保证 R 一定能复位。
             const controls = controlsRef.current;

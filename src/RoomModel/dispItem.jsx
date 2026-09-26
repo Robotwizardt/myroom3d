@@ -8,7 +8,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 import { useCameraStore } from '../helper/CameraStore';
-import { useProjectStore } from '../helper/ProjectStore';
 import TextureMaterial from './textures/TextureMaterial';
 extend({ TextureMaterial });
 
@@ -106,7 +105,6 @@ const DispItem = React.memo(({ toggle, nodes }) => {
     const laptopState = useCameraStore((state) => state.laptop);
     const tvState = useCameraStore((state) => state.tv);
     const smartphoneState = useCameraStore((state) => state.smartphone);
-    const openProject = useProjectStore((state) => state.openProject);
 
     return (
         <>
@@ -125,7 +123,6 @@ const DispItem = React.memo(({ toggle, nodes }) => {
                     cameraState === 'displayBoard'
                         ? () => {
                               defaultState();
-                              openProject(5); // 板本体 → 回到房间
                           }
                         : undefined
                 }
@@ -152,7 +149,6 @@ const DispItem = React.memo(({ toggle, nodes }) => {
                         cameraState === 'displayBoard'
                             ? () => {
                                   desktopState();
-                                  openProject(0); // desktop → B站
                                   setHoveredMonitor(false);
                                   onPointerOut();
                               }
@@ -194,7 +190,6 @@ const DispItem = React.memo(({ toggle, nodes }) => {
                                 ? undefined
                                 : () => {
                                       laptopState();
-                                      openProject(4); // music → 网易云
                                       setHoveredLaptop(false);
                                       onPointerOut();
                                   }
@@ -236,7 +231,6 @@ const DispItem = React.memo(({ toggle, nodes }) => {
                                 ? undefined
                                 : () => {
                                       defaultState();
-                                      openProject(5); // home → 回到房间
                                       setHoveredHome(false);
                                       onPointerOut();
                                   }
@@ -275,7 +269,6 @@ const DispItem = React.memo(({ toggle, nodes }) => {
                                 ? undefined
                                 : () => {
                                       smartphoneState();
-                                      openProject(1); // smartphone → 地图
                                       setHoveredSmartphone(false);
                                       onPointerOut();
                                   }
@@ -317,7 +310,6 @@ const DispItem = React.memo(({ toggle, nodes }) => {
                                 ? undefined
                                 : () => {
                                       tvState();
-                                      openProject(2); // tv → 复古游戏
                                       setHoveredTv(false);
                                       onPointerOut();
                                   }

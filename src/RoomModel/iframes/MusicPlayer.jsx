@@ -14,16 +14,17 @@ const MusicPlayer = React.memo(() => {
     const cameraState = useCameraStore((state) => state.cameraState);
     const isLaptop = useMemo(() => cameraState === 'laptop', [cameraState]);
 
-    // 不用 transform：用 screen-space Html，播放器以真实 CSS 像素尺寸
-    // 钉在笔记本屏幕的世界坐标处，镜头特写时正好盖住那块烘焙出来的假 Spotify 界面。
-    // position 是笔记本屏幕中心的世界坐标（按 laptop 镜头视角调出来）。
+    // 用 screen-space Html（非 transform）：播放器以真实 CSS 像素尺寸钉在笔记本屏幕
+    // 的世界坐标处。laptop 特写镜头正对屏幕，此时它正好盖在屏幕上。
+    // （transform 模式在本项目渲染管线下有兼容问题，已实测不可用；此版本稳定且效果正确。）
+    // position = 笔记本屏幕中心的世界坐标。
     return (
         <group>
             {isLaptop && (
                 <Html
                     wrapperClass="htmlMusicPlayer"
                     center
-                    position={[-2.4, 1.9, 5.18]}
+                    position={[-2.4, 1.72, 5.18]}
                     zIndexRange={[3, 1]}
                 >
                     <PlayerPanel />
@@ -184,8 +185,8 @@ const PlayerPanel = () => {
 // 内联样式，避免引入新的 CSS 文件/依赖
 const styles = {
     wrap: {
-        width: 560,
-        height: 380,
+        width: 660,
+        height: 470,
         background: 'rgba(18,18,22,0.96)',
         borderRadius: 10,
         color: '#fff',

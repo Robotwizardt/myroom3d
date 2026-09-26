@@ -1,19 +1,18 @@
 /* eslint-disable react/display-name */
 import { Html } from '@react-three/drei';
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 
 import { useCameraStore } from '../../helper/CameraStore';
+import IPhone4S from './IPhone4S';
 
-// 手机屏幕里的交互地图 —— OpenStreetMap 官方嵌入页（可拖拽/缩放，零依赖）。
-// 想换城市/区域：到 openstreetmap.org 搜到你要的位置 → 右侧「分享」→ HTML →
-// 复制 embed.html?bbox=...&layer=mapnik 那串贴到这里。bbox=左,下,右,上 经纬度。
-// 下面默认框的是北京（天安门附近）。
-const MAP_EMBED =
-    'https://www.openstreetmap.org/export/embed.html?bbox=116.35,39.88,116.44,39.93&layer=mapnik&marker=39.905,116.397';
-
+/**
+ * 手机屏幕 —— iPhone 4s 复古模拟器（本地 React 组件，非 iframe）。
+ * 进手机特写后：锁屏（滑动解锁）→ 主屏 20 个拟物图标 →
+ * 时钟/计算器/备忘录三个真 App + 地图「无网络连接」彩蛋 → Home 键回主屏。
+ * 详见 src/data/iphone4s.js 和 src/RoomModel/iframes/IPhone4S.jsx。
+ */
 const SmartphoneiFrame = React.memo(() => {
     const cameraState = useCameraStore((state) => state.cameraState);
-    const iframeRef = useRef(null);
 
     const isSmartphone = useMemo(
         () => cameraState === 'smartphone',
@@ -34,14 +33,7 @@ const SmartphoneiFrame = React.memo(() => {
                     position={[1.6395, 1.125, -1.373]}
                     zIndexRange={[2, 1]}
                 >
-                    <iframe
-                        width={392}
-                        height={809}
-                        title="交互地图"
-                        src={MAP_EMBED}
-                        style={{ border: 'none', borderRadius: '22px' }}
-                        ref={iframeRef}
-                    />
+                    <IPhone4S />
                 </Html>
             )}
         </group>

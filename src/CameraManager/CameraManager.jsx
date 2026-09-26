@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { useEffect } from 'react';
 
 import { useCameraStore } from '../helper/CameraStore';
+import { KeyboardMoveDriver, ResetKey } from './keyboardCamera';
 
 export const CameraManager = () => {
     const cameraControle = useRef();
@@ -110,27 +111,34 @@ export const CameraManager = () => {
     });
 
     return (
-        <CameraControls
-            makeDefault={true}
-            ref={cameraControle}
-            dollyToCursor={dollyToCursor}
-            dollySpeed={1.2}
-            truckSpeed={truckSpeed}
-            minDistance={minDistance}
-            maxDistance={maxDistancce}
-            smoothTime={0.8}
-            maxAzimuthAngle={maxAzimuthAngle}
-            minAzimuthAngle={minAzimuthAngle}
-            minPolarAngle={minPolarAngle}
-            maxPolarAngle={maxPolarAngle}
-            polarRotateSpeed={0.3}
-            azimuthRotateSpeed={0.3}
-            maxSpeed={20}
-            enableTransition={true}
-            boundaryFriction={0}
-            boundaryEnclosesCamera={true}
-            interactiveArea={[0.5, 0.5, 1, 1]}
-            enabled={enable}
-        />
+        <>
+            <CameraControls
+                makeDefault={true}
+                ref={cameraControle}
+                dollyToCursor={dollyToCursor}
+                dollySpeed={1.2}
+                truckSpeed={truckSpeed}
+                minDistance={minDistance}
+                maxDistance={maxDistancce}
+                smoothTime={0.8}
+                maxAzimuthAngle={maxAzimuthAngle}
+                minAzimuthAngle={minAzimuthAngle}
+                minPolarAngle={minPolarAngle}
+                maxPolarAngle={maxPolarAngle}
+                polarRotateSpeed={0.3}
+                azimuthRotateSpeed={0.3}
+                maxSpeed={20}
+                enableTransition={true}
+                boundaryFriction={0}
+                boundaryEnclosesCamera={true}
+                interactiveArea={[0.5, 0.5, 1, 1]}
+                enabled={enable}
+            />
+
+            {/* 键盘移动（【新增】）：和上面的 CameraControls 共用同一个 ref，直接驱动同一个控制器 */}
+            <KeyboardMoveDriver controlsRef={cameraControle} />
+            {/* 按 R 回到全景视角（【新增】） */}
+            <ResetKey controlsRef={cameraControle} />
+        </>
     );
 };

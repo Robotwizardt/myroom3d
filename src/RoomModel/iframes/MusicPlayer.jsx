@@ -14,17 +14,25 @@ const MusicPlayer = React.memo(() => {
     const cameraState = useCameraStore((state) => state.cameraState);
     const isLaptop = useMemo(() => cameraState === 'laptop', [cameraState]);
 
-    // 用 screen-space Html（非 transform）：播放器以真实 CSS 像素尺寸钉在笔记本屏幕
-    // 的世界坐标处。laptop 特写镜头正对屏幕，此时它正好盖在屏幕上。
-    // （transform 模式在本项目渲染管线下有兼容问题，已实测不可用；此版本稳定且效果正确。）
-    // position = 笔记本屏幕中心的世界坐标。
+    // 照 GBA 模拟器（tvEmulator）/ 显示器（desktopiFrame）的做法，用 <Html transform>
+    // 把播放器直接焊进笔记本屏幕：DOM 跟随 3D 屏幕平面，镜头任意角度都对齐、不割裂。
+    // 屏幕 mesh (nodes.laptop) 是斜面四边形，实测 4 顶点经 matrixWorld 变换后拟合出屏幕基：
+    //   right = (-0.5542, 0, -0.8324), up = (-0.1311, 0.9875, 0.0876), normal = (0.822, 0.1576, -0.5472)
+    // 注意：Html 的 position/rotation 是【父级空间】坐标（Html 组与屏幕 mesh 同处带平移
+    //   t=(0.0328,-2.6891,0.5782) 的父级下），屏幕中心世界坐标 (0.29812,-0.3133,3.78785)
+    //   换算到父级空间 = C - t；父级为纯平移，旋转无需换算。
+    // rotation = 由 right/up/normal 构造的基矩阵转欧拉角（XYZ 序）。
+    // distanceFactor 0.585 + wrap 700x400：世界尺寸约 1.02x0.585，正好铺满屏幕 (约 1.03x0.58)。
     return (
         <group>
             {isLaptop && (
                 <Html
+                    transform
                     wrapperClass="htmlMusicPlayer"
-                    center
-                    position={[-2.4, 1.72, 5.18]}
+                    distanceFactor={0.585}
+                    occlude="blending"
+                    position={[0.26532, 2.37605, 3.20977]}
+                    rotation={[-2.86114, 0.9649, 2.90937]}
                     zIndexRange={[3, 1]}
                 >
                     <PlayerPanel />
@@ -185,8 +193,8 @@ const PlayerPanel = () => {
 // 内联样式，避免引入新的 CSS 文件/依赖
 const styles = {
     wrap: {
-        width: 660,
-        height: 470,
+        width: 700,
+        height: 400,
         background: 'rgba(18,18,22,0.96)',
         borderRadius: 10,
         color: '#fff',

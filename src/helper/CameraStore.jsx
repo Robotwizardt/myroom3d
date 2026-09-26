@@ -48,3 +48,8 @@ export const useCameraStore = create((set) => ({
     dollyToCursor: true,
     enable: true
 }));
+
+// 开发模式调试出口：端到端验收脚本用它切镜头状态（生产不打包）
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+    window.__cameraStore = useCameraStore;
+}

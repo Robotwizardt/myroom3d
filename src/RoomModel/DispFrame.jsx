@@ -14,6 +14,9 @@ import LaptopDisp from './laptopDisp';
 const DispFrame = React.memo(({ nodes }) => {
     // Retrieve camera states from the store
     const cameraState = useCameraStore((state) => state.cameraState);
+    // 笔记本特写时，把屏幕从假 Spotify 屏保换成深色底，
+    // 让网易云播放器（MusicPlayer，Html transform）直接成为屏幕内容而非覆盖。
+    const isLaptop = cameraState === 'laptop';
     const desktopState = useCameraStore((state) => state.desktop);
     const laptopState = useCameraStore((state) => state.laptop);
     const tvState = useCameraStore((state) => state.tv);
@@ -122,7 +125,11 @@ const DispFrame = React.memo(({ nodes }) => {
                             : undefined
                     }
                 >
-                    <meshBasicMaterial map={musicBg} toneMapped={false} />
+                    {isLaptop ? (
+                        <meshBasicMaterial color="#100a1d" toneMapped={false} />
+                    ) : (
+                        <meshBasicMaterial map={musicBg} toneMapped={false} />
+                    )}
                 </mesh>
             </Select>
 

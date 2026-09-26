@@ -30,7 +30,6 @@ const MusicPlayer = React.memo(() => {
                     transform
                     wrapperClass="htmlMusicPlayer"
                     distanceFactor={0.585}
-                    occlude="blending"
                     position={[0.26532, 2.37605, 3.20977]}
                     rotation={[-2.86114, 0.9649, 2.90937]}
                     zIndexRange={[3, 1]}
@@ -145,7 +144,7 @@ const PlayerPanel = () => {
                                 ...S.songRow,
                                 background:
                                     current && current.id === s.id
-                                        ? 'rgba(236,65,65,0.25)'
+                                        ? 'rgba(255,114,54,0.22)'
                                         : 'transparent'
                             }}
                             onClick={() => playSong(s)}
@@ -167,7 +166,7 @@ const PlayerPanel = () => {
                                 key={i}
                                 style={{
                                     ...S.lyricLine,
-                                    color: i === activeIdx ? '#ff5b5b' : 'rgba(255,255,255,0.45)',
+                                    color: i === activeIdx ? '#ff8b5e' : 'rgba(255,255,255,0.45)',
                                     fontWeight: i === activeIdx ? 700 : 400
                                 }}
                             >
@@ -195,7 +194,7 @@ const styles = {
     wrap: {
         width: 700,
         height: 400,
-        background: 'rgba(18,18,22,0.96)',
+        background: 'rgba(16,10,29,0.97)',
         borderRadius: 10,
         color: '#fff',
         fontFamily: 'system-ui, "PingFang SC", "Microsoft YaHei", sans-serif',
@@ -205,14 +204,14 @@ const styles = {
         boxSizing: 'border-box',
         overflow: 'hidden'
     },
-    header: { fontSize: 18, fontWeight: 700, color: '#ec4141', marginBottom: 8 },
+    header: { fontSize: 18, fontWeight: 700, color: '#ff7236', marginBottom: 8 },
     searchRow: { display: 'flex', gap: 8, marginBottom: 8 },
     input: {
         flex: 1,
         padding: '6px 10px',
         borderRadius: 6,
-        border: '1px solid #444',
-        background: '#232329',
+        border: '1px solid #3d2f5c',
+        background: '#241a3d',
         color: '#fff',
         fontSize: 14,
         outline: 'none'
@@ -221,7 +220,7 @@ const styles = {
         padding: '6px 14px',
         borderRadius: 6,
         border: 'none',
-        background: '#ec4141',
+        background: '#ff7236',
         color: '#fff',
         fontSize: 14,
         cursor: 'pointer'
@@ -231,7 +230,7 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'rgba(236,65,65,0.15)',
+        background: 'rgba(255,114,54,0.14)',
         borderRadius: 6,
         padding: '6px 10px',
         marginBottom: 8
@@ -244,7 +243,7 @@ const styles = {
         height: 34,
         borderRadius: '50%',
         border: 'none',
-        background: '#ec4141',
+        background: '#ff7236',
         color: '#fff',
         fontSize: 15,
         cursor: 'pointer',

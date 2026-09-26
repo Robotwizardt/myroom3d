@@ -93,7 +93,9 @@ const LaptopDisp = React.memo(({ nodes }) => {
     };
 
     return (
-        <>
+        // 笔记本特写（laptop）时隐藏这 5 个本地专辑封面，
+        // 让网易云播放器（MusicPlayer，Html transform）独占屏幕；远看时仍显示。
+        <group visible={cameraState !== 'laptop'}>
             <mesh
                 geometry={nodes.music1.geometry}
                 position={nodes.music1.position}
@@ -181,7 +183,7 @@ const LaptopDisp = React.memo(({ nodes }) => {
                     toneMapped={false}
                 />
             </mesh>
-        </>
+        </group>
     );
 });
 

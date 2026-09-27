@@ -70,21 +70,31 @@ export const CameraManager = () => {
         }
 
         if (cameraState === 'smartphone') {
+            // 特写：相机飞到机身正上方偏 12°（近乎垂直的「产品照」机位），
+            // 看「实体机身 + DOM 屏」。机身世界中心 [1.6725,-1.6135,-0.7941]
+            // （旧贴图面画面中心再叠加 BODY_DROP_TO_DESK = -0.0453，让机身底面落到桌面）。
+            // 机位水平方向取「Home 键那一侧」的反方向（机身局部 +X 在世界里指向
+            // (0.569, -0.822)，相机放在 -X 侧 → 屏幕上的 iOS 界面在画面里是正着的；
+            // 从听筒那一侧看会把整块 UI 看成倒转 180°）。
+            // 极角/方位角约束跟实拍视角对齐（polar≈0.067π、azimuth≈-0.205π），
+            // 否则一拖动就会被约束「吸」回旧机位、视角突然跳开。
+            // 屏被 3D 缩放时「视口 px ≠ 布局 px」，所以滑动解锁靠
+            // data/lockSlider.js 的换算（按渲染宽/布局宽），不会因为镜头远近失效。
             useCameraStore.setState({ truckSpeed: 0 });
             useCameraStore.setState({ dollyToCursor: false });
-            useCameraStore.setState({ minDistance: 8.8 });
-            useCameraStore.setState({ maxDistancce: 9.2 });
-            useCameraStore.setState({ minPolarAngle: Math.PI * 0.03 });
-            useCameraStore.setState({ maxPolarAngle: Math.PI * 0.036 });
-            useCameraStore.setState({ minAzimuthAngle: Math.PI * 0.83 });
-            useCameraStore.setState({ maxAzimuthAngle: Math.PI * 0.845 });
+            useCameraStore.setState({ minDistance: 1.0 });
+            useCameraStore.setState({ maxDistancce: 1.35 });
+            useCameraStore.setState({ minPolarAngle: Math.PI * 0.05 });
+            useCameraStore.setState({ maxPolarAngle: Math.PI * 0.085 });
+            useCameraStore.setState({ minAzimuthAngle: -Math.PI * 0.225 });
+            useCameraStore.setState({ maxAzimuthAngle: -Math.PI * 0.185 });
             cameraControle.current.setLookAt(
-                1.7,
-                -0.3,
-                -0.85,
-                1.25,
-                -9,
-                -0.1,
+                1.52904,
+                -0.48868,
+                -0.60283,
+                1.6725,
+                -1.6135,
+                -0.7941,
                 true
             );
         }

@@ -14,11 +14,11 @@ describe('iPhone 4s 数据', () => {
         expect(LOCK_TIME).toBe('9:41');
     });
 
-    it('主屏 16 个图标 + Dock 4 个，id 不重复', () => {
-        expect(HOME_ICONS).toHaveLength(16);
+    it('主屏 20 个图标（iOS 6 的 4×5）+ Dock 4 个，id 不重复', () => {
+        expect(HOME_ICONS).toHaveLength(20);
         expect(DOCK_ICONS).toHaveLength(4);
         const ids = [...HOME_ICONS, ...DOCK_ICONS].map((i) => i.id);
-        expect(new Set(ids).size).toBe(20);
+        expect(new Set(ids).size).toBe(24);
     });
 
     it('三个真 App（时钟/备忘录/计算器）+ 地图彩蛋在主屏上', () => {

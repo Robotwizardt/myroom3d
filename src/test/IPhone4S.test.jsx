@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { LOCK_TIME, NOTES } from '../data/iphone4s';
+import { HOME_EVENT, LOCK_TIME, NOTES } from '../data/iphone4s';
 import IPhone4S from '../RoomModel/iframes/IPhone4S';
 
-// 392x809 是 3D 手机屏幕 DOM 的实际尺寸（见 smartphoneiFrame.jsx 的 transform 参数）
+// 320x480 是 iOS 6 / iPhone 4s 的屏（见 data/ios6.js + iphone4sBody.js 的 SCREEN）
 function renderPhone() {
     return render(<IPhone4S />);
 }
@@ -21,19 +21,25 @@ function pointerEvent(type, clientX) {
 }
 
 // 解锁：在滑条上按下 → 拖到最右 → 抬起
+// （jsdom 里量不到尺寸，lockSlider 会回退到 iOS 6 滑条的布局宽 258）
 function unlockPhone() {
-    const track = document.querySelector('div[style*="cursor: grab"]');
+    const track = screen.getByTestId('lock-slider');
     fireEvent(track, pointerEvent('pointerdown', 30));
     fireEvent(track, pointerEvent('pointermove', 230));
     fireEvent(track, pointerEvent('pointerup', 230));
 }
 
-describe('iPhone4S 组件', () => {
+// 机身实体 Home 键：3D 按键派发的 window 事件
+function pressHomeKey() {
+    fireEvent(window, new Event(HOME_EVENT));
+}
+
+describe('iPhone4S 组件（iOS 6）', () => {
     afterEach(cleanup);
 
     it('初始显示锁屏：9:41 + 滑动来解锁', () => {
         renderPhone();
-        // 9:41 有两处（状态栏 + 大时钟），用 getAllAll 匹配多个
+        // 9:41 有两处（状态栏 + 大时钟），用 getAllByText 匹配多个
         expect(screen.getAllByText(LOCK_TIME).length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText('滑动来解锁')).toBeTruthy();
     });
@@ -54,14 +60,10 @@ describe('iPhone4S 组件', () => {
         fireEvent.click(screen.getByText('+'));
         fireEvent.click(screen.getByText('2'));
         fireEvent.click(screen.getByText('='));
-        // 显示屏的 3（'=' 后的结果），排除计算器数字键 3
-        const display = container.querySelector(
-            'div[style*="font-size: 56px"]'
-        );
-        expect(display.textContent).toBe('3');
+        expect(container.querySelector('[data-testid="calc-display"]').textContent).toBe('3');
     });
 
-    it('虚拟 Home 键：进了计算器后点它回到主屏', async () => {
+    it('机身 Home 键：进了计算器后按它回主屏', async () => {
         renderPhone();
         unlockPhone();
         await screen.findByText('Safari');
@@ -69,10 +71,15 @@ describe('iPhone4S 组件', () => {
         fireEvent.click(screen.getByText('计算器'));
         // 计算器界面独有元素：C 键
         expect(screen.getByText('C')).toBeTruthy();
-        // Home 键（无文字，靠 title 找）
-        fireEvent.click(screen.getByTitle('Home'));
+        pressHomeKey();
         // 回主屏：Safari 重新出现
         expect(await screen.findByText('Safari')).toBeTruthy();
+    });
+
+    it('锁屏时按 Home 键不会跳过锁屏（和真机一致）', () => {
+        renderPhone();
+        pressHomeKey();
+        expect(screen.getByText('滑动来解锁')).toBeTruthy();
     });
 
     it('备忘录 App 显示预存纸条', async () => {

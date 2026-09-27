@@ -6,139 +6,353 @@ import {
     createCalculator,
     dialogFor,
     DOCK_ICONS,
+    HOME_EVENT,
     HOME_ICONS,
     LOCK_DATE,
     LOCK_TIME,
     NOTES
 } from '../../data/iphone4s';
+import { IOS6, springboardCell } from '../../data/ios6';
+import { knobX, shouldUnlock, travelWidth } from '../../data/lockSlider';
 
 /**
- * iPhone 4s 复古模拟器 —— 整个手机屏幕（392x809）。
+ * iPhone 4s 屏内 UI —— iOS 6（2012）。
  *
- * 流程：锁屏（滑动解锁）→ 主屏（16 图标 + Dock 4）→
- *       真 App（时钟/计算器/备忘录）或弹窗彩蛋 → Home 键回主屏。
+ * 版式尺寸全部来自 data/ios6.js：320×480pt（真机 640×960 @2x）、
+ * 20pt 状态栏、4×5 图标网格（57pt 圆角方、列距 80、行距 69）、页码点、玻璃 Dock。
  *
- * 纯 CSS 拟物（渐变 + 圆角 + 文字符号），零图片素材、零新依赖。
- * 时间一律 9:41（Apple 发布会梗）；只有时钟 App 的秒针在真走。
+ * 流程：锁屏（滑动解锁）→ 主屏（20 图标 + Dock 4）→ 真 App（时钟/计算器/备忘录）
+ *       或弹窗彩蛋（地图「无网络连接」等）→ 机身 Home 键回主屏。
  *
- * 根节点用 onPointerDown/Up/onClick stopPropagation 拦截事件冒泡，
- * 防止点击穿透到 canvas 的 raycast（误触 3D mesh 导致镜头乱跳）。
+ * 滑动解锁的判定走 data/lockSlider.js 的纯函数：pointer 的 clientX 是「视口 px」，
+ * 这里按轨道「渲染宽 / 布局宽」换算回布局 px（屏被 three 缩放，两者不相等）。
+ *
+ * 纯 CSS 拟物（渐变 + 圆角 + 文字符号），零图片素材、零新依赖；时间一律 9:41。
+ * 根节点 stopPropagation，防止点击穿透到 canvas 的 raycast（误触 3D mesh 导致镜头乱跳）。
  */
 
-// ---------- 各图标的 CSS 画法 ----------
-// 返回 {bg, inner}: bg 是图标底板样式，inner 是图标内容（文字/符号组合）
+// ---------- 图标画法（iOS 6 风格的渐变圆角方 + 高光） ----------
+const TILES = {
+    messages: { bg: 'linear-gradient(#79f079,#12a812)', glyph: '💬' },
+    photos: {
+        bg: 'radial-gradient(circle at 50% 46%, #fff 0 15%, rgba(255,255,255,0) 16%), conic-gradient(from 20deg, #f7d040, #f28c28, #e8453c, #d0479f, #7c4fb0, #3f76d6, #2aa9d6, #59c05c, #f7d040)'
+    },
+    stocks: { bg: 'linear-gradient(#3f3f3f,#101010)', glyph: '📈' },
+    maps: { bg: 'linear-gradient(#efe8d6,#c9c2ad)', glyph: '🗺' },
+    weather: { bg: 'linear-gradient(#6fc0f2,#1b5ea8)', glyph: '☀' },
+    passbook: { bg: 'linear-gradient(#9ad9ee,#2f7fb8)', glyph: '💳' },
+    notes: { bg: 'linear-gradient(#ffeaa8,#f2c94c)', glyph: '📝' },
+    reminders: { bg: 'linear-gradient(#fdfdfd,#d8d8d8)', glyph: '📋' },
+    newsstand: { bg: 'linear-gradient(#6d6d6d,#282828)', glyph: '📰' },
+    itunes: { bg: 'linear-gradient(#e660c8,#8b2f9c)', glyph: '🎵' },
+    'app-store': { bg: 'linear-gradient(#6fd0f7,#1173c9)', glyph: 'A' },
+    settings: { bg: 'linear-gradient(#dcdcdc,#949494)', glyph: '⚙' },
+    'game-center': { bg: 'linear-gradient(#f8bd76,#c2521f)', glyph: '🎮' },
+    videos: { bg: 'linear-gradient(#9c9c9c,#383838)', glyph: '🎬' },
+    compass: { bg: 'linear-gradient(#3c3c3c,#080808)', glyph: '🧭' },
+    contacts: { bg: 'linear-gradient(#f7f7f7,#c9c9c9)', glyph: '👤' },
+    phone: { bg: 'linear-gradient(#8bf08b,#12a512)', glyph: '📞' },
+    mail: { bg: 'linear-gradient(#9ad9f7,#1d7ec8)', glyph: '✉' },
+    music: { bg: 'linear-gradient(#ff9ad2,#e8265e)', glyph: '♪' }
+};
 
-function IconArt({ id }) {
-    // 每个图标一个拟物小画，全部用渐变+文字符号拼出来
-    const A = {
-        messages:
-            'linear-gradient(#7ec3f0,#4a90d9)',
-        calendar: 'linear-gradient(#fff,#e8e8e8)',
-        photos: 'linear-gradient(#fdfdfd,#d8d8d8)',
-        camera: 'linear-gradient(#8e9a9f,#5c666b)',
-        youtube: 'linear-gradient(#f5f5f5,#e0e0e0)',
-        stocks: 'linear-gradient(#2b2b2b,#000)',
-        maps: 'linear-gradient(#eef3d8,#cdd8a8)',
-        weather: 'linear-gradient(#5db8ff,#2f7fd6)',
-        'voice-memos': 'linear-gradient(#3a3a3a,#111)',
-        clock: 'linear-gradient(#1a1a1a,#000)',
-        calculator: 'linear-gradient(#d0d0d0,#a8a8a8)',
-        notes: 'linear-gradient(#f7f0c8,#e8dca0)',
-        compass: 'linear-gradient(#2c2c2c,#0a0a0a)',
-        settings: 'linear-gradient(#c9c9c9,#9a9a9a)',
-        itunes: 'linear-gradient(#ff6f9e,#d94b7d)',
-        'app-store': 'linear-gradient(#5ac8fa,#2a8fd8)',
-        phone: 'linear-gradient(#8ee07a,#4caf38)',
-        mail: 'linear-gradient(#bfe3ff,#7fbdf5)',
-        ipod: 'linear-gradient(#ff8f8f,#e05a5a)',
-        safari: 'linear-gradient(#e6f4ff,#bfe0ff)'
-    };
-    const glyphs = {
-        messages: '💬',
-        calendar: '9日',
-        photos: '🌸',
-        camera: '📷',
-        youtube: '▶',
-        stocks: '📈',
-        maps: '🗺',
-        weather: '☀',
-        'voice-memos': '🎙',
-        clock: '🕘',
-        calculator: '🧮',
-        notes: '📝',
-        compass: '🧭',
-        settings: '⚙',
-        itunes: '🎵',
-        'app-store': 'A',
-        phone: '📞',
-        mail: '✉',
-        ipod: '♪',
-        safari: '🧭'
-    };
-    // Safari 跟指南针撞了符号，微调
-    if (id === 'safari') glyphs[id] = '🌐';
-    return (
-        <div style={{ ...S.iconTile, background: A[id] || '#888' }}>
-            <span style={S.iconGlyph}>{glyphs[id] || '?'}</span>
-            {id === 'clock' && <ClockFace tiny />}
+/** 需要自己画的图标（其余用上面的 glyph 文字） */
+const SPECIAL = {
+    // 日历：iOS 6 的白色日历块 —— 顶部红色星期，下面大号日期
+    calendar: (size) => (
+        <div style={S.calendarTile(size)}>
+            <div style={S.calendarWeek(size)}>周二</div>
+            <div style={S.calendarDay(size)}>{LOCK_DATE.match(/(\d+)$/)?.[1] || '8'}</div>
         </div>
-    );
-}
+    ),
+    // 相机：深色机身 + 镜头
+    camera: (size) => (
+        <div style={S.cameraTile(size)}>
+            <div style={S.cameraLens(size)} />
+            <div style={S.cameraFlash(size)} />
+        </div>
+    ),
+    // 计算器：深色面板上的迷你键盘
+    calculator: (size) => (
+        <div style={S.calcTile(size)}>
+            <div style={S.calcTileScreen(size)} />
+            <div style={S.calcTileKeys(size)}>
+                {Array.from({ length: 12 }, (_, i) => (
+                    <i key={i} style={S.calcTileKey(size)} />
+                ))}
+            </div>
+        </div>
+    ),
+    // 时钟：真会走的表盘
+    clock: (size) => (
+        <ClockFace size={size * 0.92} theme="light" />
+    ),
+    // Safari：白圈罗盘 + 指针
+    safari: (size) => (
+        <div style={S.safariTile(size)}>
+            <div style={S.safariRing(size)}>
+                <div style={S.safariNeedle(size)} />
+            </div>
+        </div>
+    )
+};
 
-/** 小表盘：给主屏时钟图标用（时分针停 9:41，秒针真走） */
-function ClockFace({ tiny }) {
-    const [sec, setSec] = useState(0);
-    useEffect(() => {
-        const t = setInterval(() => setSec((s) => (s + 1) % 60), 1000);
-        return () => clearInterval(t);
-    }, []);
-    const size = tiny ? 30 : 170;
+function IconTile({ id, size }) {
+    const art = TILES[id] || { bg: 'linear-gradient(#8f8f8f,#4a4a4a)', glyph: '▪' };
+    const draw = SPECIAL[id];
     return (
         <div
             style={{
-                ...S.clockDial(tiny),
-                position: 'relative',
+                ...S.tile,
                 width: size,
                 height: size,
-                borderRadius: '50%'
+                borderRadius: size * (IOS6.springboard.iconRadius / IOS6.springboard.iconSize),
+                background: art.bg
             }}
         >
-            {/* 时针：永停 9:41 → 9 点过 41 分 ≈ 292.5°（360°表盘从12点起） */}
-            <Hand w={tiny ? 3 : 6} len={tiny ? 8 : 45} deg={292.5} />
-            {/* 分针：永停 41 分 → 246° */}
-            <Hand w={tiny ? 2 : 4} len={tiny ? 12 : 70} deg={246} />
-            {/* 秒针：真走 */}
-            <Hand w={tiny ? 1 : 2} len={tiny ? 13 : 78} deg={sec * 6} sec />
-            {/* 中心点 */}
-            <div style={S.clockDot(tiny)} />
+            {draw ? (
+                draw(size)
+            ) : (
+                <span style={{ fontSize: size * (id === 'app-store' ? 0.62 : 0.46), lineHeight: 1 }}>
+                    {art.glyph}
+                </span>
+            )}
+            {/* iOS 高光 */}
+            <span style={S.tileGloss} />
         </div>
     );
 }
 
-function Hand({ w, len, deg, sec }) {
+// ---------- 表盘 ----------
+function Hand({ w, len, deg, color, z = 2 }) {
     return (
         <div
             style={{
                 position: 'absolute',
                 left: '50%',
-                top: '50%',
+                bottom: '50%',
                 width: w,
                 height: len,
-                background: sec ? '#ff9500' : '#fff',
-                borderRadius: w,
-                transformOrigin: '50% 0%',
-                transform: `translate(-50%,0) rotate(${deg}deg)`,
-                boxShadow: '0 0 1px rgba(0,0,0,0.8)'
+                marginLeft: -w / 2,
+                background: color,
+                borderRadius: w / 2,
+                transformOrigin: '50% 100%',
+                transform: `rotate(${deg}deg)`,
+                zIndex: z
             }}
         />
     );
 }
 
-// ---------- 弹窗 ----------
+function ClockFace({ size, theme = 'dark' }) {
+    const [sec, setSec] = useState(0);
+    useEffect(() => {
+        const t = setInterval(() => setSec((v) => (v + 1) % 60), 1000);
+        return () => clearInterval(t);
+    }, []);
+
+    // 9:41 → 时针 290.5°、分针 246°（发布会时刻），秒针真走
+    const hourDeg = (9 + 41 / 60) * 30;
+    const minDeg = 41 * 6;
+    const dark = theme === 'dark';
+
+    return (
+        <div
+            style={{
+                ...S.clockFace,
+                width: size,
+                height: size,
+                background: dark
+                    ? 'radial-gradient(circle at 50% 40%, #2e2e2e, #000 75%)'
+                    : 'radial-gradient(circle at 50% 35%, #fff, #e2e2e2)',
+                border: dark ? '2px solid #3a3a3a' : '2px solid #b8b8b8'
+            }}
+        >
+            {/* 12 个刻度 */}
+            {Array.from({ length: 12 }, (_, i) => (
+                <div
+                    key={i}
+                    style={{
+                        position: 'absolute',
+                        left: '50%',
+                        top: 2,
+                        width: i % 3 === 0 ? 2 : 1,
+                        height: i % 3 === 0 ? size * 0.075 : size * 0.04,
+                        marginLeft: i % 3 === 0 ? -1 : -0.5,
+                        background: dark ? '#e8e8e8' : '#333',
+                        transformOrigin: `50% ${size / 2 - 2}px`,
+                        transform: `rotate(${i * 30}deg)`,
+                        borderRadius: 1
+                    }}
+                />
+            ))}
+            <Hand w={size * 0.045} len={size * 0.26} deg={hourDeg} color={dark ? '#fff' : '#111'} />
+            <Hand w={size * 0.035} len={size * 0.36} deg={minDeg} color={dark ? '#fff' : '#111'} />
+            <Hand w={size * 0.018} len={size * 0.4} deg={sec * 6} color="#ff9500" z={4} />
+            <div style={{ ...S.clockPin, width: size * 0.05, height: size * 0.05, margin: -size * 0.025 }} />
+        </div>
+    );
+}
+
+// ---------- 状态栏（iOS 6：左信号+运营商，中时间，右电池） ----------
+function StatusBar() {
+    return (
+        <div style={S.status}>
+            <span style={S.statusLeft}>
+                <span style={S.signal}>●●●●●</span>
+                <span style={S.carrier}>中国移动</span>
+            </span>
+            <span style={S.statusTime}>{LOCK_TIME}</span>
+            <span style={S.battery}>
+                <i style={S.batteryIcon}>
+                    <b style={S.batteryFill} />
+                </i>
+            </span>
+        </div>
+    );
+}
+
+// ---------- 锁屏 ----------
+function LockScreen({ onUnlock }) {
+    const trackRef = useRef(null);
+    const drag = useRef(null);
+    const [x, setX] = useState(0);
+    const { slider } = IOS6.lockScreen;
+
+    // 量轨道：rectWidth 是「渲染 px」，offsetWidth 是「布局 px」（屏被 3D 缩放）
+    const measure = () => {
+        const el = trackRef.current;
+        if (!el) return { rectWidth: 0, offsetWidth: 0 };
+        return {
+            rectWidth: el.getBoundingClientRect().width,
+            offsetWidth: el.offsetWidth
+        };
+    };
+
+    const onDown = (e) => {
+        e.stopPropagation();
+        drag.current = { startX: e.clientX, maxDx: 0 };
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+    };
+
+    const onMove = (e) => {
+        if (!drag.current) return;
+        const dx = Math.max(drag.current.maxDx, e.clientX - drag.current.startX);
+        drag.current.maxDx = dx;
+        setX(knobX({ dx, ...measure() }));
+    };
+
+    const onUp = (e) => {
+        if (!drag.current) return;
+        const { maxDx } = drag.current;
+        drag.current = null;
+        const m = measure();
+        if (shouldUnlock({ dx: maxDx, ...m })) {
+            setX(travelWidth(m));
+            onUnlock();
+        } else {
+            setX(0);
+        }
+    };
+
+    return (
+        <div style={S.lock}>
+            <StatusBar />
+            <div style={S.lockClock}>{LOCK_TIME}</div>
+            <div style={S.lockDate}>{LOCK_DATE}</div>
+            <div
+                ref={trackRef}
+                data-testid="lock-slider"
+                style={{ ...S.sliderTrack, width: slider.width, height: slider.height }}
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
+                onPointerCancel={onUp}
+            >
+                <span style={S.sliderHint}>滑动来解锁</span>
+                <div
+                    style={{
+                        ...S.sliderKnob,
+                        width: slider.knob,
+                        height: slider.knob,
+                        borderRadius: slider.knob / 2,
+                        lineHeight: `${slider.knob}px`,
+                        transform: `translateX(${x}px)`
+                    }}
+                >
+                    ›
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ---------- 主屏 ----------
+function HomeScreen({ openApp }) {
+    const { springboard, pageDots, dock } = IOS6;
+    return (
+        <div style={S.home}>
+            <div style={S.wallpaper} />
+            <StatusBar />
+            <div style={S.springboard}>
+                {HOME_ICONS.map((icon, i) => {
+                    const cell = springboardCell(i);
+                    return (
+                        <button
+                            key={icon.id}
+                            style={{
+                                ...S.iconBtn,
+                                left: cell.left,
+                                top: cell.top,
+                                width: springboard.iconSize
+                            }}
+                            onClick={() => openApp(icon)}
+                        >
+                            <IconTile id={icon.id} size={springboard.iconSize} />
+                            <span style={S.iconLabel}>{icon.name}</span>
+                        </button>
+                    );
+                })}
+            </div>
+            <div style={{ ...S.pageDots, top: pageDots.y }}>
+                {Array.from({ length: pageDots.count }, (_, i) => (
+                    <i
+                        key={i}
+                        style={{
+                            ...S.pageDot,
+                            width: pageDots.size,
+                            height: pageDots.size,
+                            marginRight: i === pageDots.count - 1 ? 0 : pageDots.gap,
+                            opacity: i === pageDots.active ? 1 : 0.42
+                        }}
+                    />
+                ))}
+            </div>
+            <div
+                style={{
+                    ...S.dock,
+                    top: dock.top,
+                    height: dock.height,
+                    left: dock.shelfMargin,
+                    right: dock.shelfMargin
+                }}
+            >
+                {DOCK_ICONS.map((icon) => (
+                    <button key={icon.id} style={S.dockBtn} onClick={() => openApp(icon)}>
+                        <IconTile id={icon.id} size={dock.iconSize} />
+                        <span style={S.iconLabel}>{icon.name}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ---------- 弹窗（iOS 6 警告框） ----------
 function Dialog({ dialog, onClose }) {
     return (
-        <div style={S.dialogMask}>
-            <div style={S.dialogBox}>
+        <div style={S.dialogMask} onClick={onClose}>
+            <div style={{ ...S.dialogBox, width: IOS6.dialog.width }} onClick={(e) => e.stopPropagation()}>
                 <div style={S.dialogTitle}>{dialog.title}</div>
                 <div style={S.dialogBody}>{dialog.body}</div>
                 <button style={S.dialogBtn} onClick={onClose}>
@@ -149,58 +363,51 @@ function Dialog({ dialog, onClose }) {
     );
 }
 
-// ---------- 备忘录 ----------
+// ---------- App：备忘录 ----------
 function NotesApp() {
-    const [openIdx, setOpenIdx] = useState(null);
-    if (openIdx === null) {
-        return (
-            <div style={S.appScreen}>
-                <div style={S.appTitle}>备忘录</div>
-                <div style={S.notesList}>
-                    {NOTES.map((n, i) => (
-                        <div
-                            key={i}
-                            style={S.noteRow}
-                            onClick={() => setOpenIdx(i)}
-                        >
-                            <div style={S.noteRowTitle}>{n.title}</div>
-                            <div style={S.noteRowBody}>
-                                {n.body.slice(0, 24)}…
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-    const n = NOTES[openIdx];
+    const [openIndex, setOpenIndex] = useState(null);
+    const note = openIndex === null ? null : NOTES[openIndex];
+
     return (
         <div style={S.appScreen}>
-            <div style={S.appBar}>
-                <span
-                    style={S.backLink}
-                    onClick={() => setOpenIdx(null)}
-                >
-                    ‹ 备忘录
-                </span>
-            </div>
-            <div style={S.notePaper}>
-                <div style={S.noteDate}>2010年6月8日</div>
-                <div style={S.noteTitle}>{n.title}</div>
-                <div style={S.noteBody}>{n.body}</div>
-            </div>
+            <StatusBar />
+            {note ? (
+                <>
+                    <div style={S.appBar}>
+                        <span style={S.backLink} onClick={() => setOpenIndex(null)}>
+                            ‹ 备忘录
+                        </span>
+                    </div>
+                    <div style={S.notePaper}>
+                        <div style={S.noteDate}>2010年6月8日</div>
+                        <div style={S.noteTitle}>{note.title}</div>
+                        <div style={S.noteBody}>{note.body}</div>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <div style={S.appBarTitle}>备忘录</div>
+                    <div style={S.notesList}>
+                        {NOTES.map((n, i) => (
+                            <div key={n.title} style={S.noteRow} onClick={() => setOpenIndex(i)}>
+                                <div style={S.noteRowTitle}>{n.title}</div>
+                                <div style={S.noteRowBody}>
+                                    {n.body.slice(0, 22)}
+                                    {n.body.length > 22 ? '…' : ''}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
         </div>
     );
 }
 
-// ---------- 计算器 ----------
+// ---------- App：计算器 ----------
 function CalculatorApp() {
     const calc = useMemo(() => createCalculator(), []);
-    const [display, setDisplay] = useState('0');
-    const press = useCallback(
-        (k) => setDisplay(calc.press(k)),
-        [calc]
-    );
+    const [display, setDisplay] = useState(calc.display);
     const rows = [
         ['C', '±', '%', '÷'],
         ['7', '8', '9', '×'],
@@ -208,140 +415,54 @@ function CalculatorApp() {
         ['1', '2', '3', '+'],
         ['0', '.', '=']
     ];
-    return (
-        <div style={{ ...S.appScreen, background: '#111' }}>
-            <div style={S.calcDisplay}>{display}</div>
-            <div style={S.calcPad}>
-                {rows.flat().map((k) => (
-                    <button
-                        key={k}
-                        style={{
-                            ...S.calcKey,
-                            ...(['+', '-', '×', '÷', '='].includes(k)
-                                ? S.calcKeyOp
-                                : {}),
-                            ...(k === '0' ? S.calcKeyZero : {})
-                        }}
-                        onClick={() => press(k)}
-                    >
-                        {k}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-}
 
-// ---------- 时钟 App ----------
-function ClockApp() {
     return (
         <div style={{ ...S.appScreen, background: '#000' }}>
-            <div style={S.appTitleLight}>时钟</div>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ClockFace />
-            </div>
-            <div style={S.clockCaption}>
-                永远停在 {LOCK_TIME} —— 发布会时刻
-            </div>
-        </div>
-    );
-}
-
-// ---------- 锁屏 ----------
-function LockScreen({ onUnlock }) {
-    const trackRef = useRef(null);
-    const [dragging, setDragging] = useState(false);
-    const startX = useRef(0);
-    const [x, setX] = useState(0);
-    // x 的镜像：pointerUp 的闭包里读 state 会拿到旧值（React 批处理还没提交），
-    // 用 ref 同步最新拖动位置。
-    const xRef = useRef(0);
-
-    const onDown = (e) => {
-        setDragging(true);
-        startX.current = e.clientX - x;
-        e.target.setPointerCapture?.(e.pointerId);
-    };
-    const onMove = (e) => {
-        if (!dragging) return;
-        const w = trackRef.current?.offsetWidth || 220;
-        const dx = Math.max(0, Math.min(w - 56, e.clientX - startX.current));
-        setX(dx);
-        xRef.current = dx; // 同步到 ref，pointerUp 闭包里能读到最新值
-    };
-    const onUp = () => {
-        console.log("DBG onUp: dragging=", dragging, "xRef=", xRef.current);
-        if (!dragging) return;
-        setDragging(false);
-        const w = trackRef.current?.offsetWidth || 220;
-        if (xRef.current > (w - 56) * 0.55) {
-            onUnlock(); // 拖过一半 → 解锁
-        } else {
-            setX(0);
-            xRef.current = 0;
-        }
-    };
-
-    return (
-        <div style={S.lock}>
-            {/* 状态栏 */}
             <StatusBar />
-            <div style={S.lockClock}>{LOCK_TIME}</div>
-            <div style={S.lockDate}>{LOCK_DATE}</div>
-            <div style={{ flex: 1 }} />
-            {/* 解锁滑条 */}
-            <div
-                ref={trackRef}
-                style={S.sliderTrack}
-                onPointerDown={onDown}
-                onPointerMove={onMove}
-            onPointerUp={onUp}
-            >
-                <div style={{ ...S.sliderKnob, left: x }}>›</div>
+            <div data-testid="calc-display" style={S.calcDisplay}>
+                {display}
             </div>
-            <div style={S.lockHint}>滑动来解锁</div>
-            <div style={{ height: 46 }} />
-        </div>
-    );
-}
-
-function StatusBar() {
-    return (
-        <div style={S.statusBar}>
-            <span>▪▪▪▪ 中国移动 ▸</span>
-            <span style={S.statusTime}>{LOCK_TIME}</span>
-            <span>🔋 100%</span>
-        </div>
-    );
-}
-
-// ---------- 主屏 ----------
-function HomeScreen({ openApp }) {
-    return (
-        <div style={S.home}>
-            <StatusBar />
-            <div style={S.iconGrid}>
-                {HOME_ICONS.map((icon) => (
+            <div style={S.calcPad}>
+                {rows.flat().map((key) => (
                     <button
-                        key={icon.id}
-                        style={S.iconBtn}
-                        onClick={() => openApp(icon)}
+                        key={key}
+                        style={{
+                            ...S.calcKey,
+                            ...(key === '0' ? S.calcKeyZero : null),
+                            ...('+−×÷'.includes(key) || key === '=' ? S.calcKeyOp : null),
+                            ...('C±%'.includes(key) ? S.calcKeyFn : null)
+                        }}
+                        onClick={() => setDisplay(calc.press(key))}
                     >
-                        <IconArt id={icon.id} />
-                        <span style={S.iconLabel}>{icon.name}</span>
+                        {key}
                     </button>
                 ))}
             </div>
-            <div style={S.dock}>
-                {DOCK_ICONS.map((icon) => (
-                    <button
-                        key={icon.id}
-                        style={S.iconBtn}
-                        onClick={() => openApp(icon)}
-                    >
-                        <IconArt id={icon.id} />
-                        <span style={S.iconLabel}>{icon.name}</span>
-                    </button>
+        </div>
+    );
+}
+
+// ---------- App：时钟（iOS 6：世界时钟） ----------
+function ClockApp() {
+    const tabs = ['世界时钟', '闹钟', '秒表', '计时器'];
+    return (
+        <div style={{ ...S.appScreen, background: '#000' }}>
+            <StatusBar />
+            <div style={S.clockBar}>时钟</div>
+            <div style={S.clockBody}>
+                <div style={S.clockCityRow}>
+                    <span style={S.clockCityName}>北京</span>
+                    <span style={S.clockCityTime}>{LOCK_TIME}</span>
+                    <span style={S.clockCityDay}>今天</span>
+                </div>
+                <ClockFace size={168} theme="dark" />
+                <div style={S.clockCaption}>永远停在 9:41 —— 发布会时刻</div>
+            </div>
+            <div style={S.tabBar}>
+                {tabs.map((t, i) => (
+                    <span key={t} style={{ ...S.tab, color: i === 0 ? '#fff' : '#9a9a9a' }}>
+                        {t}
+                    </span>
                 ))}
             </div>
         </div>
@@ -350,351 +471,512 @@ function HomeScreen({ openApp }) {
 
 // ---------- 主组件 ----------
 const IPhone4S = () => {
-    const [screen, setScreen] = useState('lock'); // lock | home | app
+    const [screen, setScreen] = useState('lock');
     const [app, setApp] = useState(null);
     const [dialog, setDialog] = useState(null);
+
+    const goHome = useCallback(() => {
+        setDialog(null);
+        setApp(null);
+        setScreen('home');
+    }, []);
 
     const unlock = useCallback(() => setScreen('home'), []);
 
     const openApp = useCallback((icon) => {
-        const d = dialogFor(icon);
-        if (d) {
-            setDialog(d);
+        const popup = dialogFor(icon);
+        if (popup) {
+            setDialog(popup);
             return;
         }
         setApp(icon.id);
         setScreen('app');
     }, []);
 
-    const goHome = useCallback(() => {
-        setScreen('home');
-        setApp(null);
+    // 机身实体 Home 键 → 回主屏（锁屏时停在锁屏，和真机一致）
+    useEffect(() => {
+        const onHome = () => {
+            setScreen((current) => (current === 'lock' ? current : 'home'));
+            setDialog(null);
+            setApp(null);
+        };
+        window.addEventListener(HOME_EVENT, onHome);
+        return () => window.removeEventListener(HOME_EVENT, onHome);
     }, []);
 
-    const stop = { onPointerDown: (e) => e.stopPropagation(), onPointerUp: (e) => e.stopPropagation(), onClick: (e) => e.stopPropagation() };
+    const stop = {
+        onPointerDown: (e) => e.stopPropagation(),
+        onPointerUp: (e) => e.stopPropagation(),
+        onClick: (e) => e.stopPropagation()
+    };
 
     return (
-        <div style={S.phone} {...stop}>
+        <div data-testid="phone-screen" style={S.phone} {...stop}>
             {screen === 'lock' && <LockScreen onUnlock={unlock} />}
             {screen === 'home' && <HomeScreen openApp={openApp} />}
             {screen === 'app' && app === 'clock' && <ClockApp />}
             {screen === 'app' && app === 'calculator' && <CalculatorApp />}
             {screen === 'app' && app === 'notes' && <NotesApp />}
             {dialog && <Dialog dialog={dialog} onClose={() => setDialog(null)} />}
-            {/* 虚拟 Home 键（锁屏时隐藏，进系统后出现） */}
-            {screen !== 'lock' && (
-                <button style={S.homeBtn} onClick={goHome} title="Home" />
-            )}
         </div>
     );
 };
 
 export default IPhone4S;
 
-// ---------- 样式表 ----------
+// ---------- 样式表（尺寸尽量从 IOS6 数据表来） ----------
+const WALLPAPER =
+    'radial-gradient(ellipse at 50% 28%, #4a86c8 0%, #23558f 38%, #102a4c 70%, #060e1c 100%)';
+
 const S = {
     phone: {
-        width: 392,
-        height: 809,
-        borderRadius: 22,
+        width: IOS6.screen.width,
+        height: IOS6.screen.height,
+        borderRadius: 6,
         overflow: 'hidden',
         position: 'relative',
-        fontFamily: '"Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif',
         background: '#000',
+        pointerEvents: 'auto',
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        display: 'flex',
-        flexDirection: 'column'
+        fontFamily: '"Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif',
+        color: '#fff'
     },
-    statusBar: {
-        height: 26,
-        fontSize: 11,
-        color: '#fff',
+
+    // 状态栏
+    status: {
+        position: 'relative',
+        height: IOS6.statusBar.height,
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 10px',
-        textShadow: '0 1px 2px rgba(0,0,0,0.7)',
-        flexShrink: 0
+        padding: '0 6px',
+        fontSize: IOS6.statusBar.fontSize,
+        fontWeight: 600,
+        zIndex: 30
     },
-    statusTime: { fontWeight: 700 },
+    statusLeft: { display: 'flex', alignItems: 'center', gap: 3 },
+    signal: { fontSize: 9, letterSpacing: -1, transform: 'translateY(-1px)' },
+    carrier: { letterSpacing: 0.2 },
+    statusTime: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        fontWeight: 700,
+        pointerEvents: 'none'
+    },
+    battery: { display: 'flex', alignItems: 'center' },
+    batteryIcon: {
+        position: 'relative',
+        display: 'block',
+        width: 22,
+        height: 11,
+        borderRadius: 2.5,
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.8)'
+    },
+    batteryFill: {
+        position: 'absolute',
+        left: 1.5,
+        top: 1.5,
+        width: 19,
+        height: 8,
+        borderRadius: 1.5,
+        background: '#5ee05e'
+    },
 
     // 锁屏
     lock: {
-        flex: 1,
+        position: 'absolute',
+        inset: 0,
+        background: WALLPAPER,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        background:
-            'radial-gradient(ellipse at 30% 20%, #4a7bc0 0%, #23405e 45%, #0d1b2a 100%)',
-        padding: '60px 20px 0'
+        alignItems: 'center'
     },
     lockClock: {
-        fontSize: 64,
+        marginTop: IOS6.lockScreen.clockTop - IOS6.statusBar.height,
+        fontSize: IOS6.lockScreen.clockSize,
         fontWeight: 200,
-        color: '#fff',
-        textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-        marginTop: 20
+        letterSpacing: -1,
+        textShadow: '0 2px 10px rgba(0,0,0,0.55)'
     },
     lockDate: {
-        fontSize: 16,
-        color: 'rgba(255,255,255,0.85)',
-        marginTop: 4,
-        marginBottom: 30
+        marginTop: 2,
+        fontSize: IOS6.lockScreen.dateSize,
+        color: 'rgba(255,255,255,0.9)',
+        textShadow: '0 1px 4px rgba(0,0,0,0.6)'
     },
     sliderTrack: {
-        width: 220,
-        height: 44,
-        borderRadius: 22,
-        background: 'rgba(255,255,255,0.18)',
-        border: '1px solid rgba(255,255,255,0.25)',
-        position: 'relative',
+        position: 'absolute',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        bottom: IOS6.lockScreen.slider.bottom,
+        borderRadius: IOS6.lockScreen.slider.height / 2,
+        background:
+            'linear-gradient(rgba(255,255,255,0.32), rgba(255,255,255,0.14))',
+        border: '1px solid rgba(255,255,255,0.45)',
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.25)',
         cursor: 'grab',
-        flexShrink: 0
+        touchAction: 'none'
+    },
+    sliderHint: {
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 15,
+        fontWeight: 500,
+        color: 'rgba(255,255,255,0.85)',
+        textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+        pointerEvents: 'none'
     },
     sliderKnob: {
         position: 'absolute',
         top: 1,
-        left: 0,
-        width: 42,
-        height: 42,
-        borderRadius: '50%',
-        background: 'linear-gradient(#fdfdfd,#c8c8c8)',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-        color: '#666',
-        fontSize: 20,
+        left: 1,
         textAlign: 'center',
-        lineHeight: '42px',
-        fontWeight: 700
-    },
-    lockHint: {
-        color: 'rgba(255,255,255,0.8)',
-        fontSize: 12,
-        marginTop: 8
+        fontWeight: 400,
+        fontSize: 22,
+        color: '#7a7a7a',
+        background: 'linear-gradient(#ffffff,#c4c4c4)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.9)',
+        cursor: 'grab'
     },
 
     // 主屏
-    home: {
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
+    home: { position: 'absolute', inset: 0, background: WALLPAPER },
+    wallpaper: {
+        position: 'absolute',
+        inset: 0,
         background:
-            'radial-gradient(ellipse at 50% 35%, #3d6db5 0%, #1c3557 50%, #101b2e 100%)',
-        padding: '6px 10px 0'
+            'radial-gradient(ellipse at 50% 22%, rgba(255,255,255,0.16), rgba(255,255,255,0) 60%)'
     },
-    iconGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '14px 4px',
-        paddingTop: 14,
-        flex: 1,
-        alignContent: 'start'
-    },
+    springboard: { position: 'absolute', inset: 0 },
     iconBtn: {
-        background: 'none',
+        position: 'absolute',
+        padding: 0,
         border: 'none',
+        background: 'none',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 4,
-        cursor: 'pointer',
-        padding: 0,
-        ':active': { filter: 'brightness(0.6)' }
+        cursor: 'pointer'
     },
-    iconTile: {
-        width: 54,
-        height: 54,
-        borderRadius: 12,
+    iconLabel: {
+        marginTop: IOS6.springboard.labelGap,
+        fontSize: IOS6.springboard.labelSize,
+        lineHeight: `${IOS6.springboard.labelHeight}px`,
+        color: '#fff',
+        whiteSpace: 'nowrap',
+        textShadow: '0 -1px 0 rgba(0,0,0,0.45)'
+    },
+    tile: {
+        position: 'relative',
+        overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 5px rgba(0,0,0,0.45)',
-        overflow: 'hidden',
-        position: 'relative'
+        boxShadow: '0 1px 3px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.25)'
     },
-    iconGlyph: { fontSize: 26 },
-    iconLabel: {
-        fontSize: 10,
-        color: '#fff',
-        textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-        whiteSpace: 'nowrap'
-    },
-    dock: {
-        height: 76,
-        margin: '6px 4px 0',
-        borderRadius: 14,
-        background: 'rgba(255,255,255,0.14)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        flexShrink: 0
+    tileGloss: {
+        position: 'absolute',
+        inset: 0,
+        borderRadius: 'inherit',
+        pointerEvents: 'none',
+        background:
+            'linear-gradient(rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.12) 47%, rgba(255,255,255,0) 48%)'
     },
 
-    // 虚拟 Home 键
-    homeBtn: {
+    // 日历图标
+    calendarTile: (size) => ({
         position: 'absolute',
-        bottom: 4,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 34,
-        height: 34,
+        inset: 0,
+        background: 'linear-gradient(#fdfdfd,#e4e4e4)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-start'
+    }),
+    calendarWeek: (size) => ({
+        fontSize: size * 0.19,
+        color: '#d0362c',
+        fontWeight: 700,
+        marginTop: size * 0.09,
+        lineHeight: 1
+    }),
+    calendarDay: (size) => ({
+        fontSize: size * 0.46,
+        color: '#1a1a1a',
+        fontWeight: 300,
+        lineHeight: 1.1
+    }),
+    // 相机图标
+    cameraTile: (size) => ({
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(#6d6d6d,#2a2a2a)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    }),
+    cameraLens: (size) => ({
+        width: size * 0.5,
+        height: size * 0.5,
         borderRadius: '50%',
-        background: 'linear-gradient(#5a5a5a,#2a2a2a)',
-        border: '1px solid #111',
-        boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.25)',
-        cursor: 'pointer',
-        zIndex: 50
+        background: 'radial-gradient(circle at 40% 35%, #7ec8f0 0 18%, #2b5f80 40%, #101c26 70%)',
+        boxShadow: '0 0 0 2px #1a1a1a, inset 0 0 6px rgba(255,255,255,0.35)'
+    }),
+    cameraFlash: (size) => ({
+        position: 'absolute',
+        right: size * 0.14,
+        top: size * 0.12,
+        width: size * 0.1,
+        height: size * 0.1,
+        borderRadius: '50%',
+        background: '#ffe9a8'
+    }),
+    // 计算器图标
+    calcTile: (size) => ({ position: 'absolute', inset: 0, background: 'linear-gradient(#3d3d3d,#151515)', padding: size * 0.1 }),
+    calcTileScreen: (size) => ({
+        height: size * 0.16,
+        borderRadius: 2,
+        background: 'linear-gradient(#c9d6a8,#9fb07a)',
+        marginBottom: size * 0.06
+    }),
+    calcTileKeys: (size) => ({
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: size * 0.045
+    }),
+    calcTileKey: (size) => ({
+        display: 'block',
+        height: size * 0.1,
+        borderRadius: 2,
+        background: '#6e6e6e'
+    }),
+    // Safari 图标
+    safariTile: (size) => ({
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(circle at 50% 40%, #6fc3f7, #1b6fc0 70%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+    }),
+    safariRing: (size) => ({
+        width: '82%',
+        height: '82%',
+        borderRadius: '50%',
+        background: 'linear-gradient(#fdfdfd,#dcdcdc)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.15)'
+    }),
+    safariNeedle: (size) => ({
+        width: '62%',
+        height: '14%',
+        background: 'linear-gradient(90deg, #e8453c 0 50%, #2f6fb5 50% 100%)',
+        transform: 'rotate(-45deg)',
+        borderRadius: 2
+    }),
+
+    // 页码点
+    pageDots: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    pageDot: { display: 'block', borderRadius: '50%', background: '#fff' },
+
+    // Dock（iOS 6 玻璃条）
+    dock: {
+        position: 'absolute',
+        display: 'flex',
+        justifyContent: 'space-around',
+        alignItems: 'flex-start',
+        paddingTop: IOS6.dock.iconTop - IOS6.dock.top,
+        borderRadius: IOS6.dock.shelfRadius,
+        background:
+            'linear-gradient(rgba(255,255,255,0.34), rgba(255,255,255,0.16))',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.35)',
+        backdropFilter: 'blur(2px)'
+    },
+    dockBtn: {
+        border: 'none',
+        background: 'none',
+        padding: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        cursor: 'pointer'
     },
 
     // 弹窗
     dialogMask: {
         position: 'absolute',
         inset: 0,
-        background: 'rgba(0,0,0,0.35)',
+        background: 'rgba(0,0,0,0.42)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 90
     },
     dialogBox: {
-        width: 260,
-        borderRadius: 12,
-        background: 'linear-gradient(#e8e8ec,#c8c8cc)',
-        border: '1px solid #999',
-        textAlign: 'center',
+        borderRadius: IOS6.dialog.radius,
         overflow: 'hidden',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+        textAlign: 'center',
+        background: 'linear-gradient(#eceef2,#c9cdd6)',
+        boxShadow: '0 6px 20px rgba(0,0,0,0.45)'
     },
-    dialogTitle: {
-        fontSize: 14,
-        fontWeight: 700,
-        padding: '14px 12px 0',
-        color: '#222'
-    },
-    dialogBody: {
-        fontSize: 12,
-        color: '#444',
-        padding: '6px 14px 14px',
-        lineHeight: 1.5
-    },
+    dialogTitle: { fontSize: 13, fontWeight: 700, color: '#222', padding: '12px 12px 0' },
+    dialogBody: { fontSize: 11, color: '#4a4a4a', padding: '5px 14px 12px', lineHeight: 1.45 },
     dialogBtn: {
         width: '100%',
-        borderTop: '1px solid #9a9a9a',
-        background: 'linear-gradient(#fdfdfd,#d0d0d4)',
         border: 'none',
-        padding: '10px 0',
-        fontSize: 15,
-        color: '#16388a',
-        fontWeight: 600,
+        borderTop: '1px solid rgba(90,100,120,0.6)',
+        background: 'linear-gradient(#9fb6dd,#6f8cc0)',
+        color: '#fff',
+        fontWeight: 700,
+        fontSize: 14,
+        padding: '9px 0',
         cursor: 'pointer'
     },
 
     // 通用 App 屏
     appScreen: {
-        flex: 1,
+        position: 'absolute',
+        inset: 0,
         display: 'flex',
         flexDirection: 'column',
-        background: '#f2f2f2',
-        color: '#111',
-        overflow: 'hidden'
-    },
-    appTitle: {
-        fontSize: 17,
-        fontWeight: 700,
-        textAlign: 'center',
-        padding: '10px 0 4px',
-        borderBottom: '1px solid #bbb',
-        background: 'linear-gradient(#e8e8e8,#d0d0d0)'
-    },
-    appTitleLight: {
-        fontSize: 17,
-        fontWeight: 700,
-        textAlign: 'center',
-        color: '#fff',
-        padding: '10px 0'
+        background: '#f4f4f4',
+        color: '#111'
     },
     appBar: {
-        background: 'linear-gradient(#e8e8e8,#d0d0d0)',
-        borderBottom: '1px solid #bbb',
-        padding: '8px 10px',
-        fontSize: 15
+        background: 'linear-gradient(#dbe3ef,#a9b7cd)',
+        borderBottom: '1px solid #7d8ba1',
+        padding: '7px 10px',
+        fontSize: 14,
+        flexShrink: 0
     },
-    backLink: { color: '#16388a', fontWeight: 600, cursor: 'pointer' },
+    appBarTitle: {
+        background: 'linear-gradient(#dbe3ef,#a9b7cd)',
+        borderBottom: '1px solid #7d8ba1',
+        padding: '7px 0',
+        fontSize: 14,
+        fontWeight: 700,
+        textAlign: 'center',
+        color: '#111',
+        flexShrink: 0
+    },
+    backLink: { color: '#1b4f9c', fontWeight: 600, cursor: 'pointer' },
 
     // 备忘录
-    notesList: { flex: 1, overflowY: 'auto', background: '#fff' },
+    notesList: { flex: 1, overflowY: 'auto', background: '#fdf9e3' },
     noteRow: {
-        padding: '10px 12px',
+        padding: '8px 12px',
         borderBottom: '1px solid #e2ddc8',
         cursor: 'pointer'
     },
-    noteRowTitle: { fontSize: 15, fontWeight: 700 },
-    noteRowBody: { fontSize: 12, color: '#777', marginTop: 2 },
+    noteRowTitle: { fontSize: 14, fontWeight: 700, color: '#3a3220' },
+    noteRowBody: { fontSize: 11, color: '#8b8168', marginTop: 2 },
     notePaper: {
         flex: 1,
-        background:
-            'repeating-linear-gradient(#fdf9e3 0 27px, #f0ead0 27px 28px)',
-        padding: '14px 16px',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        padding: '12px 14px',
+        background: 'repeating-linear-gradient(#fdf9e3 0 23px, #efe8cf 23px 24px)'
     },
-    noteDate: { fontSize: 11, color: '#a09880', textAlign: 'center' },
-    noteTitle: { fontSize: 19, fontWeight: 700, textAlign: 'center', margin: '6px 0 10px' },
-    noteBody: { fontSize: 15, lineHeight: '28px' },
+    noteDate: { fontSize: 10, color: '#a89d80', textAlign: 'center' },
+    noteTitle: { fontSize: 17, fontWeight: 700, textAlign: 'center', margin: '5px 0 8px', color: '#3a3220' },
+    noteBody: { fontSize: 13, lineHeight: '24px', color: '#3a3220' },
 
     // 计算器
     calcDisplay: {
-        fontSize: 56,
+        fontSize: 46,
         fontWeight: 200,
         color: '#fff',
         textAlign: 'right',
-        padding: '24px 18px 10px',
-        overflow: 'hidden',
-        flexShrink: 0
+        padding: '10px 14px 6px',
+        flexShrink: 0,
+        overflow: 'hidden'
     },
     calcPad: {
         flex: 1,
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateRows: 'repeat(5, 1fr)',
         gap: 1,
-        background: '#333',
-        padding: 1
+        background: '#3a3a3a',
+        borderTop: '1px solid #3a3a3a'
     },
     calcKey: {
         border: 'none',
         fontSize: 22,
-        background: 'linear-gradient(#fafafa,#d8d8d8)',
-        color: '#111',
+        fontWeight: 400,
+        background: 'linear-gradient(#6e6e6e,#3f3f3f)',
+        color: '#fff',
         cursor: 'pointer'
     },
-    calcKeyOp: {
-        background: 'linear-gradient(#ffae42,#ff8c00)',
-        color: '#fff',
-        fontSize: 26
-    },
+    calcKeyOp: { background: 'linear-gradient(#ffb03a,#f08a00)', color: '#fff', fontSize: 24 },
+    calcKeyFn: { background: 'linear-gradient(#e8e8e8,#bdbdbd)', color: '#111' },
     calcKeyZero: { gridColumn: 'span 2' },
 
     // 时钟
-    clockDial: (tiny) => ({
-        background: tiny ? 'transparent' : 'radial-gradient(#2a2a2a,#000)',
-        border: tiny ? 'none' : '3px solid #444',
+    clockBar: {
+        background: 'linear-gradient(#5a5a5a,#1f1f1f)',
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: 700,
+        textAlign: 'center',
+        padding: '7px 0',
+        borderBottom: '1px solid #000',
+        flexShrink: 0
+    },
+    clockBody: {
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12
+    },
+    clockCityRow: {
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 8,
+        width: '86%',
+        justifyContent: 'space-between'
+    },
+    clockCityName: { fontSize: 15, fontWeight: 600, color: '#fff' },
+    clockCityTime: { fontSize: 30, fontWeight: 200, color: '#fff' },
+    clockCityDay: { fontSize: 11, color: '#9a9a9a' },
+    clockCaption: { fontSize: 10, color: '#8a8a8a' },
+    clockFace: {
+        position: 'relative',
+        borderRadius: '50%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
-    }),
-    clockDot: (tiny) => ({
+    },
+    clockPin: {
         position: 'absolute',
         left: '50%',
         top: '50%',
-        width: tiny ? 3 : 8,
-        height: tiny ? 3 : 8,
-        margin: tiny ? '-1.5px' : '-4px',
         borderRadius: '50%',
-        background: '#fff'
-    }),
-    clockCaption: {
-        color: '#777',
-        fontSize: 12,
-        textAlign: 'center',
-        padding: '12px 0 18px'
-    }
+        background: '#ff9500',
+        zIndex: 5
+    },
+    tabBar: {
+        display: 'flex',
+        background: 'linear-gradient(#4a4a4a,#141414)',
+        borderTop: '1px solid #000',
+        flexShrink: 0
+    },
+    tab: { flex: 1, textAlign: 'center', fontSize: 10, padding: '7px 0' }
 };

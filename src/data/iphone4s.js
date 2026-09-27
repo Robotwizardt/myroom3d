@@ -2,7 +2,7 @@
  * iPhone 4s 复古模拟器 —— 数据与纯逻辑层。
  *
  * 这个文件不含任何 React/Three.js 代码，方便单元测试：
- * - HOME_ICONS / DOCK_ICONS：主屏与 Dock 的图标表
+ * - HOME_ICONS / DOCK_ICONS：主屏（iOS 6 的 4×5 = 20 个）与 Dock（4 个）的图标表
  * - dialogFor：点图标弹什么窗（真 App 不弹，地图弹「无网络连接」，装饰弹占位）
  * - NOTES：备忘录里预存的纸条（呼应这个 3D 房间）
  * - createCalculator：iOS 4 经典计算器引擎（立即执行逻辑：2+3×4=20）
@@ -12,11 +12,17 @@
 /** 锁屏与状态栏显示的时间（发布会梗：产品照片永远停在 9:41） */
 export const LOCK_TIME = '9:41';
 
+/**
+ * 机身实体 Home 键 → 屏内 UI 的桥：机身按键点下时 window 派发这个事件，
+ * IPhone4S 组件监听它回主屏（真机上 Home 键也在屏外）。
+ */
+export const HOME_EVENT = 'iphone-home';
+
 /** 锁屏日期：也照搬发布会常用的星期二 */
 export const LOCK_DATE = '星期二 二月 8';
 
 /**
- * 主屏 4×4 图标。
+ * 主屏 4×5 = 20 个图标，按 iPhone 4s 上 iOS 6 的默认排布（2012 年，YouTube 已从系统移除）。
  * kind 说明：
  *  - 'app'  真做出来的应用（时钟/备忘录/计算器），点开有真界面
  *  - 'map'  地图彩蛋，点开弹「无网络连接」（4s 时代的日常）
@@ -27,25 +33,29 @@ export const HOME_ICONS = [
     { id: 'calendar', name: '日历', kind: 'deco' },
     { id: 'photos', name: '照片', kind: 'deco' },
     { id: 'camera', name: '相机', kind: 'deco' },
-    { id: 'youtube', name: 'YouTube', kind: 'deco' },
     { id: 'stocks', name: '股市', kind: 'deco' },
     { id: 'maps', name: '地图', kind: 'map' },
     { id: 'weather', name: '天气', kind: 'deco' },
-    { id: 'voice-memos', name: '语音备忘录', kind: 'deco' },
+    { id: 'passbook', name: 'Passbook', kind: 'deco' },
+    { id: 'notes', name: '备忘录', kind: 'app' },
+    { id: 'reminders', name: '提醒事项', kind: 'deco' },
     { id: 'clock', name: '时钟', kind: 'app' },
     { id: 'calculator', name: '计算器', kind: 'app' },
-    { id: 'notes', name: '备忘录', kind: 'app' },
-    { id: 'compass', name: '指南针', kind: 'deco' },
-    { id: 'settings', name: '设置', kind: 'deco' },
+    { id: 'newsstand', name: '报刊亭', kind: 'deco' },
     { id: 'itunes', name: 'iTunes', kind: 'deco' },
-    { id: 'app-store', name: 'App Store', kind: 'deco' }
+    { id: 'app-store', name: 'App Store', kind: 'deco' },
+    { id: 'settings', name: '设置', kind: 'deco' },
+    { id: 'game-center', name: 'Game Center', kind: 'deco' },
+    { id: 'videos', name: '视频', kind: 'deco' },
+    { id: 'compass', name: '指南针', kind: 'deco' },
+    { id: 'contacts', name: '通讯录', kind: 'deco' }
 ];
 
-/** 底部 Dock 4 个图标（4s 时代固定：电话/邮件/iPod/Safari） */
+/** 底部 Dock 4 个图标（4s 时代固定：电话/邮件/音乐/Safari） */
 export const DOCK_ICONS = [
     { id: 'phone', name: '电话', kind: 'deco' },
     { id: 'mail', name: '邮件', kind: 'deco' },
-    { id: 'ipod', name: 'iPod', kind: 'deco' },
+    { id: 'music', name: '音乐', kind: 'deco' },
     { id: 'safari', name: 'Safari', kind: 'deco' }
 ];
 

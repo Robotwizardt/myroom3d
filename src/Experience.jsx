@@ -23,6 +23,7 @@ const Experience = React.memo(() => {
                     far: 200,
                     position: [24, 15, -24]
                 }}
+                onCreated={({ scene }) => { window.__SCENE__ = scene; }}
                 gl={{
                     antialias: true,
                     alpha: true,

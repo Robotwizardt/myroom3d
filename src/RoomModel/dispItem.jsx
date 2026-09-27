@@ -263,6 +263,7 @@ const DispItem = React.memo(({ toggle, nodes }) => {
                     geometry={nodes.smartphone.geometry}
                     position={nodes.smartphone.position}
                     rotation={nodes.smartphone.rotation}
+                    visible={false}
                     onClick={
                         cameraState === 'displayBoard'
                             ? cameraState === 'smartphone'

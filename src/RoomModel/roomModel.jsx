@@ -8,6 +8,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
 import { useCameraStore } from '../helper/CameraStore';
+import { BAKED_PHONE_PROP_CUT } from '../data/iphone4sBody';
 import TheamSwitch from '../Switch/TheamSwitch';
 import Clock from './clock';
 import DispFrame from './DispFrame';
@@ -99,7 +100,12 @@ const RoomModel = React.memo(() => {
             lightPcColor: controls.pcColor,
             lightPcStrength: controls.pcColorStrength,
             lightDeskColor: controls.deskColors,
-            lightDeskStrength: controls.deskColorStrngth
+            lightDeskStrength: controls.deskColorStrngth,
+            // 房间大壳里烘焙着原项目的旧手机道具（绿壳），按世界空间有向盒裁掉；
+            // 数值见 data/iphone4sBody.js 的 BAKED_PHONE_PROP_CUT。
+            cutCenter: BAKED_PHONE_PROP_CUT.center,
+            cutHalf: BAKED_PHONE_PROP_CUT.half,
+            cutRotY: BAKED_PHONE_PROP_CUT.rotY
         }),
         [dBaked, nBaked, lightMap, controls]
     );

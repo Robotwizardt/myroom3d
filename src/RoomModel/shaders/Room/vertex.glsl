@@ -1,5 +1,6 @@
 precision mediump float;
 varying vec2 vUv;
+varying vec3 vWorldPosition;
 
 void main()
 {
@@ -9,4 +10,6 @@ void main()
     gl_Position = projectionPosition;
 
     vUv = uv;
+    // 世界坐标传给片元，用于抠掉烘焙在壳里的旧手机道具
+    vWorldPosition = modelPosition.xyz;
 }

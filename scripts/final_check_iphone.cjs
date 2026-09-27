@@ -7,9 +7,12 @@
 // 注意：这里所有交互都是真实鼠标/键盘事件。老的版本为了让解锁通过，
 // 把滑条拖了 trackWidth × 2.2（超出屏幕外的 CSS 距离），属于「测试迁就 bug」，
 // 已删除；现在只按渲染出来的可见行程拖，拖到底就必须解锁。
+// 跑法（本机没把 playwright 装进项目，用全局那份）：
+//   NODE_PATH="C:/Users/admin/node_modules_global/node_modules/@playwright/cli/node_modules" \
+//     node scripts/final_check_iphone.cjs           # 端口默认 5174，可 BASE=... 覆盖
 const { chromium } = require('playwright');
 
-const BASE = 'http://localhost:5174';
+const BASE = process.env.BASE || 'http://localhost:5174';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const results = [];

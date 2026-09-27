@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { create } from 'zustand';
 
 export const useCameraStore = create((set) => ({

@@ -1,5 +1,4 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react/display-name */
 /* eslint-disable react/prop-types */
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';

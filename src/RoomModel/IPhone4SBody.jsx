@@ -21,8 +21,8 @@ import { RoundedBox } from '@react-three/drei';
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
-import { BACK, BODY, FRONT, SCREEN, SIDE, mm, sideButtonRadius } from '../data/iphone4sBody';
 import { HOME_EVENT } from '../data/iphone4s';
+import { BACK, BODY, FRONT, mm, SCREEN, SIDE, sideButtonRadius } from '../data/iphone4sBody';
 import { useCameraStore } from '../helper/CameraStore';
 
 /* ---------------- canvas 贴图（画正反面细节，比堆 mesh 更像真机） ---------------- */

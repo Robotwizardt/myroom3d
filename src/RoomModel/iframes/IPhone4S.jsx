@@ -1,7 +1,7 @@
-/* eslint-disable react/display-name */
-/* eslint-disable react/prop-types -- 内部小组件用对象参数，不值得写 propTypes */
+/* eslint-disable react/prop-types -- 这个文件里全是屏幕内部的小组件（图标/状态栏/单个 App），参数是简单的标量或对象，写 propTypes 不划算 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { IOS6, springboardCell } from '../../data/ios6';
 import {
     createCalculator,
     dialogFor,
@@ -12,7 +12,6 @@ import {
     LOCK_TIME,
     NOTES
 } from '../../data/iphone4s';
-import { IOS6, springboardCell } from '../../data/ios6';
 import { knobX, shouldUnlock, travelWidth } from '../../data/lockSlider';
 
 /**
@@ -242,7 +241,7 @@ function LockScreen({ onUnlock }) {
         setX(knobX({ dx, ...measure() }));
     };
 
-    const onUp = (e) => {
+    const onUp = () => {
         if (!drag.current) return;
         const { maxDx } = drag.current;
         drag.current = null;
@@ -475,12 +474,6 @@ const IPhone4S = () => {
     const [app, setApp] = useState(null);
     const [dialog, setDialog] = useState(null);
 
-    const goHome = useCallback(() => {
-        setDialog(null);
-        setApp(null);
-        setScreen('home');
-    }, []);
-
     const unlock = useCallback(() => setScreen('home'), []);
 
     const openApp = useCallback((icon) => {
@@ -691,7 +684,7 @@ const S = {
     },
 
     // 日历图标
-    calendarTile: (size) => ({
+    calendarTile: () => ({
         position: 'absolute',
         inset: 0,
         background: 'linear-gradient(#fdfdfd,#e4e4e4)',
@@ -714,7 +707,7 @@ const S = {
         lineHeight: 1.1
     }),
     // 相机图标
-    cameraTile: (size) => ({
+    cameraTile: () => ({
         position: 'absolute',
         inset: 0,
         background: 'linear-gradient(#6d6d6d,#2a2a2a)',
@@ -758,7 +751,7 @@ const S = {
         background: '#6e6e6e'
     }),
     // Safari 图标
-    safariTile: (size) => ({
+    safariTile: () => ({
         position: 'absolute',
         inset: 0,
         background: 'radial-gradient(circle at 50% 40%, #6fc3f7, #1b6fc0 70%)',
@@ -766,7 +759,7 @@ const S = {
         alignItems: 'center',
         justifyContent: 'center'
     }),
-    safariRing: (size) => ({
+    safariRing: () => ({
         width: '82%',
         height: '82%',
         borderRadius: '50%',
@@ -776,7 +769,7 @@ const S = {
         justifyContent: 'center',
         boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.15)'
     }),
-    safariNeedle: (size) => ({
+    safariNeedle: () => ({
         width: '62%',
         height: '14%',
         background: 'linear-gradient(90deg, #e8453c 0 50%, #2f6fb5 50% 100%)',

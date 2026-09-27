@@ -3,8 +3,8 @@
 import { Html } from '@react-three/drei';
 import React, { useMemo } from 'react';
 
-import { BODY, HOME_HIT, SCREEN } from '../../data/iphone4sBody';
 import { HOME_EVENT } from '../../data/iphone4s';
+import { BODY, HOME_HIT, SCREEN } from '../../data/iphone4sBody';
 import { useCameraStore } from '../../helper/CameraStore';
 import IPhone4S from './IPhone4S';
 

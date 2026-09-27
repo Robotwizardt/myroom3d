@@ -16,6 +16,35 @@ export const formatDuration = (ms) => {
     return `${m}:${s}`;
 };
 
+/**
+ * 把接口给的图片地址统一成 https（见 ADR-0002）：
+ * 接口返回的专辑封面是 http 链接，部署到 https 站点时会被浏览器当混合内容拦掉。
+ * 空值/非字符串一律返回空串，界面据此显示封面占位块。
+ */
+export const toHttps = (url) => {
+    if (typeof url !== 'string' || !url) return '';
+    if (url.startsWith('//')) return `https:${url}`;
+    if (url.startsWith('http://')) return `https://${url.slice('http://'.length)}`;
+    return url;
+};
+
+/**
+ * 封面在界面上的两处用法对应的 CDN 档位（ADR-0002：URL 归一化与尺寸只在这里定，
+ * 界面层只调 albumArtUrl(url, ART_SIZE.xxx)，换尺寸不用改 jsx）。
+ * 行内小图 72 对应 36px 显示框（2x 屏），转盘中心 256 对应 100px 圆。
+ */
+export const ART_SIZE = { row: '72y72', disc: '256y256' };
+
+/**
+ * 拼上网易云 CDN 的缩放参数（`?param=72y72`），size 省略则返回原图。
+ * 实测 `?param=120y120` 能把单张封面从 3955B 降到 1968B。
+ */
+export const albumArtUrl = (url, size) => {
+    const base = toHttps(url);
+    if (!base || !size) return base;
+    return `${base}${base.includes('?') ? '&' : '?'}param=${size}`;
+};
+
 /** 把一首歌的原始字段整理成播放器要用的形状（/search 老格式：artists/duration） */
 export const normalizeSong = (raw) => ({
     id: raw.id,
@@ -34,7 +63,7 @@ export const normalizeTrack = (raw) => ({
     name: raw.name,
     artist: (raw.ar || []).map((a) => a.name).join('/'),
     duration: formatDuration(raw.dt),
-    picUrl: raw?.al?.picUrl
+    picUrl: toHttps(raw?.al?.picUrl)
 });
 
 /** 拿个性化推荐歌单列表，返回第一个歌单的 id（作为默认歌单） */
@@ -46,9 +75,10 @@ export const getDefaultPlaylistId = async () => {
 };
 
 /**
- * 拉取某个歌单的详情，返回 { name, tracks }：
- *   name   歌单名
- *   tracks 整理好的曲目数组 [{id,name,artist,duration,picUrl}]
+ * 拉取某个歌单的详情，返回 { name, tracks, coverImgUrl }：
+ *   name         歌单名
+ *   tracks       整理好的曲目数组 [{id,name,artist,duration,picUrl}]
+ *   coverImgUrl  歌单封面（https，没有时为空串）—— 没选歌时转盘中心的兜底图
  * 网络失败会抛错，由调用方提示用户。
  */
 export const getPlaylistTracks = async (playlistId) => {
@@ -58,6 +88,7 @@ export const getPlaylistTracks = async (playlistId) => {
     if (!playlist) throw new Error('歌单信息拿不到');
     return {
         name: playlist.name,
+        coverImgUrl: toHttps(playlist.coverImgUrl),
         tracks: (playlist.tracks || []).map(normalizeTrack)
     };
 };

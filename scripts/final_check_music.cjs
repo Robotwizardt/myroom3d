@@ -28,9 +28,13 @@ const check = (name, cond, extra = '') => {
 
     // 1. 进笔记本特写，等歌单接口回来
     await page.evaluate(() => window.__cameraStore.getState().laptop());
-    await sleep(4000);
 
     const rows = page.locator('[data-testid="song-row"]');
+    // 歌单接口偶尔很慢（自建 API 实测 0.5s~8s），不能只 sleep 固定几秒
+    for (let i = 0; i < 30; i++) {
+        await sleep(1000);
+        if ((await rows.count()) > 5) break;
+    }
     const rowCount = await rows.count();
     check('歌单曲目列表加载出来', rowCount > 5, `${rowCount} 行`);
     if (rowCount === 0) {

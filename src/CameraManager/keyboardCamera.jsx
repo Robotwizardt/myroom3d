@@ -29,11 +29,23 @@ const ROT_SPEED = 0.6; // 弧度/秒（初版 1.2，实测 2.5 秒能转 1.5 弧
  *   ↑ ↓ ← →    转动视角（绕注视点环绕）
  *   Shift      加速（按住时移动速度翻倍）
  *   R          回到房间全景视角
+ *
+ * 例外：电视特写（cameraState === 'tv'）里 GBA 要用方向键 / Z / X，所以此时
+ * 整个键盘相机停用（只留下 R），见 ADR-0003。
  */
 
 /** 每帧调用的驱动逻辑，单独导出方便复用 */
 export const KeyboardMoveDriver = ({ controlsRef }) => {
     const keys = useRef(new Set());
+    const cameraState = useCameraStore((state) => state.cameraState);
+    // 用 ref 传给事件回调 / useFrame，避免每次状态变化都重挂监听
+    const tvLocked = useRef(false);
+    tvLocked.current = cameraState === 'tv';
+
+    // 进电视特写时把可能按住的键清掉，免得出来还在走
+    useEffect(() => {
+        if (cameraState === 'tv') keys.current.clear();
+    }, [cameraState]);
 
     useEffect(() => {
         const isTyping = (t) =>
@@ -44,6 +56,8 @@ export const KeyboardMoveDriver = ({ controlsRef }) => {
 
         const onDown = (e) => {
             if (isTyping(e.target)) return;
+            // 电视特写里键盘全给 GBA 用（见 ADR-0003）
+            if (tvLocked.current) return;
             keys.current.add(e.code);
             if (e.code.startsWith('Arrow')) e.preventDefault();
         };
@@ -76,7 +90,7 @@ export const KeyboardMoveDriver = ({ controlsRef }) => {
         if (!controls) return;
 
         const k = keys.current;
-        if (k.size === 0) return;
+        if (k.size === 0 || tvLocked.current) return;
 
         // 和系统代理一样，限制单帧步长：切后台再回来时 delta 会很大，不限制会瞬移
         const dt = Math.min(delta, 0.1);

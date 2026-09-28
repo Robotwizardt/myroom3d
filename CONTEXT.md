@@ -28,12 +28,15 @@
 - **黑胶转盘 (vinylDisc)**：播放器右侧那块「黑胶片 + 中心封面 + 唱针」的图形，
   播放时旋转、暂停时静止。见 ADR-0002。
 - **游戏清单 (games)**：电视 GBA 模拟器的卡带列表，写在 `src/data/games.js`，
-  每项含 `id` / `name` / `rom`（指向 `public/assets`）/ `core`，可选 `desc`。
-  ROM 本体不进仓库，由所有者自己丢。见 ADR-0003。
+  每项含 `id` / `name` / `rom`（指向 `public/assets`）/ `core` / `platform`，
+  可选 `desc` 与署名的 `author` / `license` / `source`（带 `license` 就必须写全）。
+  只放作者授权的免费同人游戏，逐条出处见 `CREDITS.md`。见 ADR-0003。
 - **卡带菜单 (cartridgeMenu)**：进电视特写后先出现的那屏拟物卡带轮播
   （←→ 选、Enter 开始），选定后才重挂并启动模拟器。见 ADR-0003。
 - **存档点 (saveMark)**：卡带角上那颗小黄点，表示这个 ROM 在浏览器里已有 SRAM
   电池存档（IndexedDB 库 `/data/saves`）。刚玩完回菜单才亮。见 ADR-0003。
+- **平台字样 (platformMark)**：卡带底部那行 `GAME BOY` / `GAME BOY COLOR` /
+  `GAME BOY ADVANCE`，由条目的 `platform` 决定（`PLATFORM_LABEL`）。见 ADR-0003。
 - **开机遮罩 (bootOverlay)**：点卡带后盖住屏幕的「正在开机…」黑底层，
   模拟器发出 start 事件后淡出；超时/出错时换成可读文案。见 ADR-0003。
 

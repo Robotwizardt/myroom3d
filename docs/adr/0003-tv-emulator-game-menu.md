@@ -53,7 +53,15 @@
    超过 8 秒补一行提示，出错则显示可读错误 + 「返回菜单」。
 8. **ROM 缺失在菜单里就地降级**：加载时对每条 `rom` 发 HEAD 请求，
    返回 `text/html`（Vite 对不存在文件的 SPA 兜底）或非 2xx 的条目变灰标「文件缺失」，
-   点了不启动，并提示把 `.gba` 放进 `public/assets/`。
+   点了不启动，并提示把 ROM 放进 `public/assets/`。
+9. **只放作者授权分发的免费同人游戏**（GB / GBC / GBA），商业 ROM 不进仓库。
+   条目带 `platform`（决定卡带底部印 `GAME BOY` / `GAME BOY COLOR` /
+   `GAME BOY ADVANCE`）与 `author` / `license` / `source`（带 `license` 就必须
+   三个都写），菜单底栏把「作者 · 许可」显示出来，逐条的出处与许可汇总在仓库
+   根目录的 `CREDITS.md`。同人 ROM 主要来自 Homebrew Hub 的公开数据库
+   `gbdev/database`（每个条目自带许可元数据）。
+10. **`core` 一律填 `gba`**：本地只镜像了 mGBA 核心，它同时吃 GB / GBC / GBA；
+    填 `gb` 平台 id 会指向没下过的 gambatte 核心，反而开不了机。
 
 ## 考虑过并否掉的替代
 
@@ -68,6 +76,7 @@
 ## 后果
 
 - 加/换游戏：改 `src/data/games.js` + 丢 ROM 进 `public/assets`，不用碰组件。
+  卡带数量变了会自动缩尺寸，保证一排装得下（6 张时每张约 216px）。
 - 仓库多 1.72 MiB 二进制（`public/data`）。
 - 切换游戏会有一次 iframe 重挂，期间显示开机遮罩。
 - **存档跟着 ROM 文件名走**：重命名 ROM 文件等于丢档；改 `id` 只影响即时存档与设置。

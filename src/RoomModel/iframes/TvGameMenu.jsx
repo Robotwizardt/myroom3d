@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types -- 面板是内部组件，props 形状由 ADR-0003 与调用方约定 */
 import { useEffect } from 'react';
 
-import { nextIndex } from '../../data/games';
+import { nextIndex, PLATFORM_LABEL } from '../../data/games';
 import { TvScreenStyles } from './TvScreenStyles';
 
 /** 卡带标签的配色，按顺序取（超过就循环） */
@@ -13,6 +13,20 @@ const LABEL_COLORS = [
     'linear-gradient(150deg, #a86ff0, #6a2fc0)',
     'linear-gradient(150deg, #ef7fae, #c03a72)'
 ];
+
+/** 卡带尺寸：数量多了就整体缩一点，保证一排全塞进 1470 宽的居中层 */
+const CART = { width: 224, height: 302, gap: 34, rowWidth: 1470 };
+
+const layoutFor = (count) => {
+    const width = count
+        ? Math.min(
+              CART.width,
+              Math.floor((CART.rowWidth - (count - 1) * CART.gap) / count)
+          )
+        : CART.width;
+    const k = width / CART.width;
+    return { width, height: Math.round(CART.height * k), k, gap: CART.gap };
+};
 
 const stop = (e) => e.stopPropagation();
 
@@ -40,6 +54,7 @@ export const TvGameMenu = ({
 }) => {
     const current = games[index];
     const missing = !!current && probe[current.id] === 'missing';
+    const cart = layoutFor(games.length);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -127,7 +142,7 @@ export const TvGameMenu = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 34,
+                    gap: cart.gap,
                     paddingTop: 16
                 }}
             >
@@ -150,14 +165,18 @@ export const TvGameMenu = ({
                             aria-label={g.name}
                             onClick={(e) => {
                                 stop(e);
-                                if (gone) return;
+                                // 缺文件的卡带可以选中（好看清底栏那句「文件缺失」），但永远不开机
+                                if (gone) {
+                                    if (!selected) onSelect?.(i);
+                                    return;
+                                }
                                 if (selected) onStart?.(g);
                                 else onSelect?.(i);
                             }}
                             style={{
                                 position: 'relative',
-                                width: 224,
-                                height: 302,
+                                width: cart.width,
+                                height: cart.height,
                                 padding: 0,
                                 borderRadius: 14,
                                 border: '2px solid rgba(255,255,255,0.10)',
@@ -211,14 +230,14 @@ export const TvGameMenu = ({
                             <span
                                 style={{
                                     margin: '22px 18px 0',
-                                    height: 112,
+                                    height: Math.round(112 * cart.k),
                                     borderRadius: '10px 10px 5px 5px',
                                     background: LABEL_COLORS[i % LABEL_COLORS.length],
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     padding: '0 12px',
-                                    fontSize: 20,
+                                    fontSize: Math.round(20 * cart.k),
                                     fontWeight: 700,
                                     lineHeight: 1.25,
                                     letterSpacing: 1,
@@ -233,7 +252,7 @@ export const TvGameMenu = ({
                             <span
                                 style={{
                                     margin: '14px 18px 0',
-                                    fontSize: 17,
+                                    fontSize: Math.round(17 * cart.k),
                                     fontWeight: 600,
                                     lineHeight: 1.3
                                 }}
@@ -244,7 +263,7 @@ export const TvGameMenu = ({
                                 <span
                                     style={{
                                         margin: '8px 18px 0',
-                                        fontSize: 12.5,
+                                        fontSize: Math.max(11, Math.round(12.5 * cart.k)),
                                         lineHeight: 1.5,
                                         color: 'rgba(232,236,245,0.55)'
                                     }}
@@ -257,25 +276,26 @@ export const TvGameMenu = ({
                                     data-testid={`tv-missing-${g.id}`}
                                     style={{
                                         margin: '8px 18px 0',
-                                        fontSize: 12.5,
+                                        fontSize: Math.max(11, Math.round(12.5 * cart.k)),
                                         lineHeight: 1.5,
                                         color: '#ffb4a8'
                                     }}
                                 >
-                                    文件缺失：把 .gba 放进 public/assets/
+                                    文件缺失：把 ROM 放进 public/assets/
                                 </span>
                             )}
 
                             <span
+                                data-testid={`tv-platform-${g.id}`}
                                 style={{
                                     marginTop: 'auto',
-                                    paddingBottom: 14,
-                                    fontSize: 10,
-                                    letterSpacing: 3,
+                                    paddingBottom: Math.round(14 * cart.k),
+                                    fontSize: Math.max(8, Math.round(10 * cart.k)),
+                                    letterSpacing: Math.max(1.5, 3 * cart.k),
                                     color: 'rgba(232,236,245,0.35)'
                                 }}
                             >
-                                GAME BOY ADVANCE
+                                {PLATFORM_LABEL[g.platform] || 'GAME BOY ADVANCE'}
                             </span>
                         </button>
                     );
@@ -298,6 +318,21 @@ export const TvGameMenu = ({
                         }}
                     >
                         {current.desc}
+                    </div>
+                )}
+                {current?.author && (
+                    <div
+                        data-testid="tv-attribution"
+                        title={current.source ? `来源：${current.source}` : undefined}
+                        style={{
+                            marginTop: 4,
+                            fontSize: 13,
+                            color: 'rgba(232,236,245,0.42)'
+                        }}
+                    >
+                        {current.author}
+                        {current.license ? ` · ${current.license}` : ''}
+                        {current.source ? ' · 来源见 CREDITS.md' : ''}
                     </div>
                 )}
                 <div

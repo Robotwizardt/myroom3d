@@ -155,18 +155,56 @@ async function clickIntoTv(page) {
     const menuText = await menu.textContent().catch(() => '');
     check('菜单标题「游戏库」', menuText.includes('游戏库'));
     check('菜单列出超级马力欧 Advance 4', menuText.includes('超级马力欧 Advance 4'));
+    const cartCount = await page.locator('[data-testid="tv-cartridge"]').count();
+    check('6 张卡带都列出来（1 张自备 + 5 张同人）', cartCount === 6, `实际 ${cartCount} 张`);
+    check(
+        '同人游戏在列（Tobu Tobu Girl Deluxe / uCity / Big2Small）',
+        menuText.includes('Tobu Tobu Girl Deluxe') &&
+            menuText.includes('uCity') &&
+            menuText.includes('Big2Small')
+    );
     check('菜单底部常驻 ↕ 按键说明', menuText.includes('← → 选卡带') && menuText.includes('Z = A'));
     check('选中卡带有「按 Enter 开始」提示', (await page.locator('[data-testid="tv-start-hint"]').textContent()).includes('开始'));
     const selected = page.locator('[data-testid="tv-cartridge"][data-selected="true"]');
     check('卡带选中态用 data-selected 标出', (await selected.count()) === 1);
     const missingNow = await page.locator('[data-testid="tv-cartridge"][data-missing="true"]').count();
     check('真实 ROM 存在 → 卡带不是灰态', missingNow === 0, `灰态 ${missingNow} 张`);
+    const plat = async (id) =>
+        (await page.locator(`[data-testid="tv-platform-${id}"]`).textContent().catch(() => '')) || '';
+    check(
+        '每张卡带印自己的平台字样',
+        (await plat('smbadv4')) === 'GAME BOY ADVANCE' &&
+            (await plat('tobudx')) === 'GAME BOY' &&
+            (await plat('ucity')) === 'GAME BOY COLOR',
+        `${await plat('smbadv4')} / ${await plat('tobudx')} / ${await plat('ucity')}`
+    );
     await page.screenshot({ path: 'evidence/tv_menu.png' });
 
-    // ── 2. 换高亮（只有一张卡带，方向键应无动作）＋ Enter 开机 ────────────
+    // ── 2. ← → 换高亮（多张卡带能移动、能两头循环）＋ Enter 开机 ──────────
+    const idOf = () =>
+        page
+            .locator('[data-testid="tv-cartridge"][data-selected="true"]')
+            .getAttribute('data-game-id');
+    const firstId = await idOf();
     await page.keyboard.press('ArrowRight');
-    await sleep(300);
-    check('只有一个游戏时 → 键不改变高亮', (await selected.count()) === 1);
+    await sleep(320);
+    const secondId = await idOf();
+    check('→ 把高亮移到下一张卡带', !!secondId && secondId !== firstId, `${firstId} → ${secondId}`);
+    const attr = (await page.locator('[data-testid="tv-attribution"]').textContent().catch(() => '')) || '';
+    check(
+        '选中同人卡带 → 底栏显示作者与许可',
+        attr.includes('Tangram Games') && attr.includes('MIT'),
+        `底栏「${attr.trim()}」`
+    );
+    await page.keyboard.press('ArrowLeft');
+    await sleep(320);
+    check('← 移回上一张', (await idOf()) === firstId);
+    await page.keyboard.press('ArrowLeft');
+    await sleep(320);
+    check('← 从第一张绕到最后一张（两头循环）', (await idOf()) !== firstId, `高亮 = ${await idOf()}`);
+    await page.keyboard.press('ArrowRight');
+    await sleep(320);
+    check('→ 再按一下回到第一张', (await idOf()) === firstId);
 
     await page.keyboard.press('Enter');
     await sleep(700);
@@ -195,8 +233,10 @@ async function clickIntoTv(page) {
     // 「真的在画」不能看截图：画布 preserveDrawingBuffer:false，Playwright 截图会随机抓到空缓冲
     // （实测同一画面亮度在 12 与 208 之间跳）。改成在 iframe 里给 drawArrays 打桩，紧跟绘制之后
     // readPixels 读默认 framebuffer —— 这才是屏幕上真正显示的东西。
-    await page.evaluate(() => {
-        const f = document.querySelector('.htmlScreen iframe');
+    // 抽成可复用的两个小函数：iframe 每次重挂都是新 window，旧的打桩会跟着丢掉。
+    const installPaintHook = () =>
+        page.evaluate(() => {
+            const f = document.querySelector('.htmlScreen iframe');
         const w = f?.contentWindow;
         if (!w || w.__paintHook) return;
         w.__paintFrame = null;
@@ -246,11 +286,16 @@ async function clickIntoTv(page) {
         patch(w.WebGLRenderingContext);
         patch(w.WebGL2RenderingContext);
         w.__paintHook = true;
-    });
+        });
+
+    const readPaint = () =>
+        page.evaluate(
+            () => document.querySelector('.htmlScreen iframe')?.contentWindow?.__paintFrame || null
+        );
+
+    await installPaintHook();
     await sleep(1500);
-    const paint = await page.evaluate(
-        () => document.querySelector('.htmlScreen iframe')?.contentWindow?.__paintFrame || null
-    );
+    const paint = await readPaint();
     check(
         'GBA 画面真的在画（GL 帧缓冲有内容，非截图判定）',
         !!paint && paint.bright >= 2,
@@ -275,14 +320,29 @@ async function clickIntoTv(page) {
     check('游戏里按 Esc → 回卡带菜单', await menu.isVisible().catch(() => false));
     check('回菜单后 iframe 被卸载（声音/画面都停）', (await page.locator('.htmlScreen iframe').count()) === 0);
 
-    // ── 5. 再开一次，用鼠标点右上角 ✕ 回菜单 ────────────────────────────
+    // ── 5. 换一张同人 GB 卡带（2048gb，32KB）再开一次，同样要真画出画面 ────────────────────────────
+    const targetId = '2048gb';
+    for (let i = 0; i < cartCount + 1 && (await idOf()) !== targetId; i++) {
+        await page.keyboard.press('ArrowRight');
+        await sleep(200);
+    }
+    check('高亮能走到同人卡带 2048gb', (await idOf()) === targetId, `高亮 = ${await idOf()}`);
     await page.locator('[data-testid="tv-cartridge"][data-selected="true"]').click();
     await page.waitForFunction(() => !document.querySelector('[data-testid="tv-boot-overlay"]'), null, {
         timeout: 40000
     });
     await sleep(500);
     const exitBtn = page.locator('[data-testid="tv-game-exit"]');
-    check('第二次开机也成功（连点换游戏不卡）', (await page.locator('.htmlScreen iframe').count()) === 1);
+    check('第二次开机也成功（换了游戏、连点不卡）', (await page.locator('.htmlScreen iframe').count()) === 1);
+    await installPaintHook();
+    await sleep(1500);
+    const paint2 = await readPaint();
+    check(
+        'GB 卡带也真的画出画面（mGBA 同时吃 GB/GBC/GBA）',
+        !!paint2 && paint2.bright >= 1,
+        JSON.stringify(paint2)
+    );
+    await brightShot(page, 'evidence/tv_game_gb.png');
     await exitBtn.click();
     await sleep(900);
     check('点 ✕ → 回卡带菜单', await menu.isVisible().catch(() => false));
@@ -309,9 +369,12 @@ async function clickIntoTv(page) {
     check('ROM 404 时卡带变灰（data-missing）', grey === 1, `灰态 ${grey} 张`);
     const greyText = await menu.textContent().catch(() => '');
     check('灰态卡带写清「文件缺失」+ 放哪', greyText.includes('文件缺失') && greyText.includes('public/assets/'));
+    // 点一下灰卡带只切高亮（不会被选不了），底栏才会出现那句缺失提示
+    await page.locator('[data-testid="tv-cartridge"][data-missing="true"]').first().click();
+    await sleep(320);
     const missingHint = await page.locator('[data-testid="tv-start-hint"]').textContent().catch(() => '');
     check('灰态时提示别开始', missingHint.includes('卡带文件缺失'), `提示「${missingHint.trim()}」`);
-    await page.locator('[data-testid="tv-cartridge"]').first().click();
+    await page.locator('[data-testid="tv-cartridge"][data-missing="true"]').first().click();
     await sleep(1000);
     check('点灰态卡带不会开机', (await page.locator('.htmlScreen iframe').count()) === 0);
     await page.screenshot({ path: 'evidence/tv_missing.png' });

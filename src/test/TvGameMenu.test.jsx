@@ -3,8 +3,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TvGameMenu } from '../RoomModel/iframes/TvGameMenu';
 
-const A = { id: 'a', name: '游戏 A', rom: './assets/a.gba', core: 'gba', desc: '第一个' };
-const B = { id: 'b', name: '游戏 B', rom: './assets/b.gba', core: 'gba' };
+const A = {
+    id: 'a',
+    name: '游戏 A',
+    rom: './assets/a.gba',
+    core: 'gba',
+    platform: 'gba',
+    desc: '第一个'
+};
+const B = {
+    id: 'b',
+    name: '游戏 B',
+    rom: './assets/b.gb',
+    core: 'gba',
+    platform: 'gb',
+    author: '某某作者',
+    license: 'MIT',
+    source: 'https://example.com/b'
+};
 const GAMES = [A, B];
 
 const setup = (props = {}) => {
@@ -71,6 +87,16 @@ describe('TvGameMenu 卡带菜单', () => {
         expect(onStart).toHaveBeenCalledWith(A);
     });
 
+    it('点灰卡带只切高亮（好看清缺失提示），始终不开机', () => {
+        const { onSelect, onStart } = setup({ probe: { b: 'missing' } });
+        fireEvent.click(screen.getAllByTestId('tv-cartridge')[1]);
+        expect(onSelect).toHaveBeenCalledWith(1);
+        expect(onStart).not.toHaveBeenCalled();
+        // 已经选中它了，再点一下仍然不开机
+        fireEvent.click(screen.getAllByTestId('tv-cartridge')[1]);
+        expect(onStart).not.toHaveBeenCalled();
+    });
+
     it('有存档的游戏卡带上有存档点，没有的不显示', () => {
         setup({ saved: new Set(['b']) });
         expect(screen.queryByTestId('tv-save-dot-a')).not.toBeInTheDocument();
@@ -98,5 +124,40 @@ describe('TvGameMenu 卡带菜单', () => {
         const hint = screen.getByTestId('tv-keys-hint');
         expect(hint).toHaveTextContent('← → 选卡带');
         expect(hint).toHaveTextContent('Z = A');
+    });
+
+    it('每张卡带按自己的平台印 GB / GBC / GBA', () => {
+        setup();
+        expect(screen.getByTestId('tv-platform-a')).toHaveTextContent('GAME BOY ADVANCE');
+        expect(screen.getByTestId('tv-platform-b')).toHaveTextContent('GAME BOY');
+    });
+
+    it('选中带署名的同人游戏时，底栏显示作者与许可', () => {
+        setup({ index: 1 });
+        const line = screen.getByTestId('tv-attribution');
+        expect(line).toHaveTextContent('某某作者 · MIT · 来源见 CREDITS.md');
+        expect(line).toHaveAttribute('title', '来源：https://example.com/b');
+    });
+
+    it('自备 ROM（没 author）不显示署名行', () => {
+        setup();
+        expect(screen.queryByTestId('tv-attribution')).not.toBeInTheDocument();
+    });
+
+    it('卡带多了会缩到一排装得下', () => {
+        const many = Array.from({ length: 6 }, (_, i) => ({
+            ...A,
+            id: `g${i}`,
+            name: `游戏 ${i}`,
+            platform: 'gbc'
+        }));
+        setup({ games: many });
+        const carts = screen.getAllByTestId('tv-cartridge');
+        expect(carts).toHaveLength(6);
+        const widths = carts.map((c) => parseFloat(c.style.width));
+        const gap = 34;
+        // 6 张 × 宽度 + 5 个间隙 ≤ 1470（居中层的可用宽）
+        expect(widths[0] * 6 + gap * 5).toBeLessThanOrEqual(1470);
+        expect(new Set(widths).size).toBe(1);
     });
 });

@@ -4,6 +4,7 @@ import {
     GAMES,
     LAST_PLAYED_KEY,
     nextIndex,
+    PLATFORM_LABEL,
     probeRom,
     readLastPlayed,
     romBaseName,
@@ -15,7 +16,7 @@ import {
 // ---------- 清单本身 ----------
 
 describe('游戏清单', () => {
-    it('每条都有 id / name / rom / core，且 id 不重复', () => {
+    it('每条都有 id / name / rom / core / platform，且 id 不重复', () => {
         expect(GAMES.length).toBeGreaterThan(0);
         const ids = GAMES.map((g) => g.id);
         expect(new Set(ids).size).toBe(ids.length);
@@ -25,7 +26,8 @@ describe('游戏清单', () => {
             expect(typeof g.name).toBe('string');
             expect(typeof g.rom).toBe('string');
             expect(g.core).toBe('gba');
-            expect(g.rom.endsWith('.gba')).toBe(true);
+            expect(g.rom).toMatch(/\.(gba|gbc|gb)$/);
+            expect(Object.keys(PLATFORM_LABEL)).toContain(g.platform);
         }
     });
 
@@ -33,6 +35,33 @@ describe('游戏清单', () => {
         for (const g of GAMES) {
             expect(g.rom.startsWith('./assets/')).toBe(true);
         }
+    });
+
+    it('带 license 的条目必须写清作者与来源（同人游戏的署名要求）', () => {
+        for (const g of GAMES.filter((x) => x.license)) {
+            expect(typeof g.author).toBe('string');
+            expect(g.author).not.toBe('');
+            expect(typeof g.source).toBe('string');
+            expect(g.source).toMatch(/^https?:\/\//);
+        }
+    });
+
+    it('带 license 的都是免费同人游戏，没有商业 ROM 混进来', () => {
+        const licensed = GAMES.filter((g) => g.license);
+        expect(licensed.length).toBeGreaterThan(0);
+        for (const g of licensed) {
+            expect(g.platform).toMatch(/^(gb|gbc)$/);
+        }
+    });
+});
+
+// ---------- 平台字样 ----------
+
+describe('卡带平台字样', () => {
+    it('三个平台各一句，和真机卡带一致', () => {
+        expect(PLATFORM_LABEL.gba).toBe('GAME BOY ADVANCE');
+        expect(PLATFORM_LABEL.gbc).toBe('GAME BOY COLOR');
+        expect(PLATFORM_LABEL.gb).toBe('GAME BOY');
     });
 });
 
@@ -53,6 +82,9 @@ describe('ROM 文件名与存档 key', () => {
             '/data/saves/SuperMarioAdvance4.srm'
         );
         expect(saveKeyFor('./assets/x.gba?v=2')).toBe('/data/saves/x.srm');
+        // GB / GBC 的 ROM 也要能对上自己的存档
+        expect(saveKeyFor('./assets/uCity.gbc')).toBe('/data/saves/uCity.srm');
+        expect(saveKeyFor('./assets/2048gb.gb')).toBe('/data/saves/2048gb.srm');
     });
 });
 
